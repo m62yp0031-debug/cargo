@@ -2,7 +2,7 @@
 <html lang="uk">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,maximum-scale=1,user-scalable=no,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Карго-Тайкун">
@@ -216,6 +216,7 @@ ol.steps{margin:8px 0 0;padding-left:20px;display:flex;flex-direction:column;gap
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:14px;z-index:20;max-width:calc(100% - 32px);text-align:center}
 .over{text-align:center;padding:28px 16px}
 .over h1{font:700 20px/1.2 var(--display);margin:0 0 10px}
+html,body{touch-action:manipulation}button,a,input,select,label,.chip,.tab{touch-action:manipulation;-webkit-tap-highlight-color:transparent}@media (pointer:coarse){input,select,textarea{font-size:16px}}
 </style>
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{-webkit-text-size-adjust:100%}</style>
 </head>
@@ -226,8 +227,10 @@ ol.steps{margin:8px 0 0;padding-left:20px;display:flex;flex-direction:column;gap
 <script>
 (function(){
 'use strict';
-var KEY='cargo-tycoon-v2',BKEY='cargo-tycoon-board';
-var GOAL=200000;
+var PF=(function(){var o=null;try{o=JSON.parse(localStorage.getItem('cargo-profiles'));}catch(e){}return o&&o.list&&o.list.length&&o.cur?o:null;})();
+var PSUF=PF&&PF.cur!=='p0'?':'+PF.cur:'';
+var KEY='cargo-tycoon-v2'+PSUF,BKEY='cargo-tycoon-board'+PSUF;
+var GOAL=1000000;
 function $(s){return document.querySelector(s);}
 function clamp(x,a,b){return Math.max(a,Math.min(b,x));}
 function fmt(n){return Math.round(n).toLocaleString('uk-UA');}
@@ -237,6 +240,11 @@ function pick(a){return a[Math.floor(Math.random()*a.length)];}
 function esc(t){return String(t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 
 var PRODUCTS=[
+ {id:'earbuds',name:'Навушники дротові',usd:0.7,kg:0.04,ua:150,dem:5,unlock:99999,freeOnly:true},
+ {id:'wmouse',name:'Миша дротова',usd:0.9,kg:0.1,ua:200,dem:4,unlock:99999,freeOnly:true},
+ {id:'tws',name:'Навушники TWS',usd:4.5,kg:0.1,ua:750,dem:2,unlock:99999,freeOnly:true},
+ {id:'kbpro',name:'Клавіатура Pro, бездротова',usd:45,kg:0.9,ua:6500,dem:0.5,unlock:99999,freeOnly:true},
+ {id:'dock',name:'Док-станція Thunderbolt',usd:60,kg:0.5,ua:8500,dem:0.4,unlock:99999,freeOnly:true},
  {id:'pad',name:'Килимок XXL прошитий',usd:2.2,kg:0.35,ua:450,dem:3.0,unlock:0},
  {id:'cable',name:'Кабель USB-C, 1 м',usd:0.6,kg:0.05,ua:120,dem:6,unlock:0},
  {id:'mouse',name:'Бездротова миша',usd:4,kg:0.12,ua:550,dem:3,unlock:0},
@@ -265,6 +273,78 @@ var SUPPLIERS=[
  {id:'oem',name:'Фабрика OEM',tag:'завод',mult:0.62,moq:100,days:12,defect:0.03,unlock:1000,note:'Заводська ціна. Мінімум 100 шт. на позицію.'}
 ];
 var LEVELS=[[0,'Новачок'],[30,'Перепродавець'],[100,'Реселер'],[300,'Опт-партнер'],[800,'Карго-бос'],[2000,'Тайкун']];
+var LEVELS_F=[[0,'Новачок'],[75,'Підробіток'],[250,'Перепродавець'],[600,'Реселер'],[1200,'Оптовик'],[2500,'Опт-партнер'],[5000,'Карго-бос'],[9000,'Імпортер'],[15000,'Магнат'],[25000,'Тайкун']];
+var FREE_DEM=0.6,FREE_UP=2;
+var LVL_P={earbuds:0,wmouse:0,cable:0,pad:1,mouse:1,led:1,stand:2,hub:2,case:2,tws:2,kb:3,gmouse:3,webcam:4,mic:4,headset:5,mkb:6,kbpro:7,dock:8};
+var LVL_S={taobao:0,pdd:1,a1688:3,alibaba:5,oem:7},LVL_U={olx:0,photo:0,prom:2,agent:3,site:4},LVL_T={assistant:2,packer:3,manager:5};
+var MG_LV={spin:2,haggle:4,pack:6},MG_NAME={spin:'Міні-гра «Колесо удачі»',haggle:'Міні-гра «Торг у Китаї»',pack:'Міні-гра «Аврал на складі»'};
+PRODUCTS.forEach(function(p){p.lv=LVL_P[p.id]||0;});
+function isFree(s){return !s.mode||s.mode==='free';}
+function LV(s){return isFree(s)?LEVELS_F:LEVELS;}
+function rbN(s){return isFree(s)?(META.reb||0):0;}
+function supOK(s,x){return isFree(s)?lvl(s).i>=LVL_S[x.id]:s.sold>=x.unlock;}
+function upOK(s,k){return isFree(s)?lvl(s).i>=LVL_U[k]:s.sold>=UPG[k].unlock;}
+function stOK(s,k){return isFree(s)?lvl(s).i>=LVL_T[k]:s.sold>=STAFF[k].unlock;}
+function lockTxt(s,kind,key,n){if(isFree(s)){var i=kind==='s'?LVL_S[key]:kind==='u'?LVL_U[key]:kind==='t'?LVL_T[key]:LVL_P[key];return 'з рівня '+(i+1);}return 'після '+fmt(n)+' продажів';}
+function mgOK(k){return !isFree(S)||lvl(S).i>=MG_LV[k];}
+function openedAt(i){
+  var o=[];if(i<=0)return o;
+  PRODUCTS.forEach(function(p){if(!p.blank&&!p.own&&p.lv===i)o.push('Товар: '+p.name);});
+  SUPPLIERS.forEach(function(x){if(LVL_S[x.id]===i)o.push('Постачальник: '+x.name);});
+  Object.keys(UPG).forEach(function(k){if(LVL_U[k]===i&&i>0)o.push('Прокачка: '+UPG[k].name);});
+  Object.keys(STAFF).forEach(function(k){if(LVL_T[k]===i)o.push('Працівник: '+STAFF[k].name);});
+  Object.keys(MG_LV).forEach(function(k){if(MG_LV[k]===i)o.push(MG_NAME[k]);});
+  if(i===5)o.push('Перерод: можна почати заново з постійним бонусом');
+  return o;
+}
+function levelUp(a,b){
+  var T=LV(S),m='Новий рівень: '+T[b][1]+'.';log(m);toast(m);sfx('level');confetti();
+  if(!isFree(S))return;
+  var bonus=400*b,o=[],i;S.cash+=bonus;S.profit+=bonus;
+  for(i=a+1;i<=b;i++)o=o.concat(openedAt(i));
+  log('Рівень '+(b+1)+': '+T[b][1]+'. Відкрито: '+(o.join(', ')||'нічого нового')+'. Бонус: '+fmt(bonus)+' грн.');
+  S.lvlPop={i:b,bonus:bonus,o:o};
+}
+function showLvlPop(){
+  var p=S.lvlPop;if(!p)return;S.lvlPop=null;
+  var T=LV(S),nx=T[p.i+1];
+  mgOpen('<h2>Новий рівень: '+T[p.i][1]+'</h2><p>Рівень '+(p.i+1)+' із '+T.length+'. Бонус за рівень: <b>+'+fmt(p.bonus)+' грн</b>.</p>'+
+    (p.o.length?'<p class="hint" style="margin:0 0 6px">Відкрилось:</p><ul class="steps">'+p.o.map(function(x){return '<li>'+x+'</li>';}).join('')+'</ul>':'')+
+    (nx?'<p class="hint">Наступний рівень «'+nx[1]+'»: ще '+fmt(Math.max(0,nx[0]-S.sold))+' продажів.</p>':'<p class="hint">Це найвищий рівень.</p>')+
+    '<div class="ctl"><button class="btn" id="lvok">Чудово</button></div>');
+  var ok=document.getElementById('lvok');if(ok)ok.addEventListener('click',function(){mgClose();render();});
+  save();
+}
+function nextLvlHtml(){
+  var s=S;if(!isFree(s))return '';
+  var L=lvl(s),T=LV(s),nx=T[L.i+1];
+  if(!nx)return '';
+  var o=openedAt(L.i+1);
+  return '<section><h2>Наступний рівень</h2><div class="card"><div class="ln"><span><b>'+nx[1]+'</b></span><span class="n">ще '+fmt(Math.max(0,nx[0]-s.sold))+' продажів</span></div>'+
+    (o.length?'<p class="hint" style="margin:8px 0 0">Відкриє: '+o.join('; ')+'.</p>':'')+'</div></section>';
+}
+function dShort(date){return new Date(date+'T12:00:00Z').toLocaleDateString('uk-UA',{day:'numeric',month:'long',timeZone:'UTC'});}
+function vTransit(){
+  var s=S;
+  if(!s.transit.length)return '<section><h2>Посилки в дорозі</h2><p class="hint" style="margin:0">Зараз нічого не їде. Після замовлення тут буде видно дату, коли посилка приїде.</p></section>';
+  return '<section><h2>Посилки в дорозі</h2><div class="card">'+s.transit.map(function(o){var d=Math.max(1,o.eta-s.day);return '<div class="ln"><span>'+o.q+' × '+P(o.id).name+' <span class="sub">· '+o.sup+'</span></span><span class="n"><b>'+dShort(addDays(s.date,d))+'</b> · '+(d>1?'через '+d+' дн.':'завтра')+'</span></div>';}).join('')+'</div></section>';
+}
+function vRebirth(){
+  var s=S;if(!isFree(s))return '';
+  var L=lvl(s).i,ok=L>=5,n=META.reb||0;
+  var h='<section><h2>Перерод</h2><div class="card"><p class="hint" style="margin-top:0">Почни вільну гру заново, але з постійним бонусом: <b>+8% до попиту</b> і <b>+1 500 грн</b> на старті за кожен перерод. Рівні, гроші й склад скидаються. Зараз переродів: <b>'+n+'</b> (попит +'+(8*n)+'%, старт +'+fmt(1500*n)+' грн).</p>';
+  if(!ok)h+='<p class="hint">Відкриється на рівні 6 «'+LEVELS_F[5][1]+'».</p>';
+  else if(ui.rebAsk)h+='<p><b>Точно переродитись? Поточна гра зникне.</b></p><div class="ctl"><button class="btn" data-a="rebgo">Так, перерод</button><button class="btn ghost" data-a="rebno">Скасувати</button></div>';
+  else h+='<div class="ctl"><button class="btn sm" data-a="reb">Перерод</button></div>';
+  return h+'</div></section>';
+}
+function doRebirth(){
+  if(!isFree(S)||lvl(S).i<5)return;
+  pushBoard();S.boarded=true;
+  META.reb=(META.reb||0)+1;metaSave();
+  ui.rebAsk=false;startMode('free');
+  toast('Перерод '+META.reb+': +'+(8*META.reb)+'% до попиту');
+}
 var UPG={
  olx:{name:'OLX-акаунт',unlock:0,costs:[600,1800,4500,10000,22000],lv:['Новий акаунт','Верифікований','Профіль з відгуками','Топ-продавець','Бізнес-профіль','Бізнес Преміум'],desc:'Більше покупців з OLX і ще один слот оголошень на кожному рівні.'},
  prom:{name:'Prom-магазин',unlock:40,costs:[1500,4000,9000,18000],lv:['Немає','Магазин створено','Каталог 50+ товарів','Сертифікований продавець','Топ-магазин'],desc:'Окремий потік покупців. Комісія Prom падає з 10% до 7%. Плюс один слот.'},
@@ -314,12 +394,12 @@ var ACH=[
  {id:'a7',name:'30 днів без повернень',test:function(s){return s.streak>=30;}},
  {id:'a8',name:'Перший працівник',test:function(s){return !!(s.staff.assistant||s.staff.packer||s.staff.manager);}},
  {id:'a9',name:'Капітал 50 000 грн',test:function(s){return capital(s)>=50000;}},
- {id:'a10',name:'Мета: 200 000 грн',test:function(s){return s.won;}},
+ {id:'a10',name:'Мета: 1 000 000 грн',test:function(s){return s.won;}},
  {id:'a11',name:'Рівень «Реселер»',test:function(s){return lvl(s).i>=2;}},
  {id:'a12',name:'Рейтинг 5 з 5',test:function(s){return s.rep>=100;}},
  {id:'a13',name:'Свій бренд',test:function(s){return s.brand.lvl>=1;}},
  {id:'a14',name:'Кредит погашено',test:function(s){return !!s.loan.paid;}},
- {id:'a15',name:'Серія завдань 7 днів',test:function(s){return s.daily.best>=7;}},
+ {id:'a15',name:'Серія завдань: 3 тижні поспіль',test:function(s){return s.daily.best>=3;}},
  {id:'a16',name:'20 відгуків на 5 зірок',test:function(s){return s.r5>=20;}},
  {id:'a17',name:'Склад на 400 шт.',test:function(s){return s.wh>=2;}},
  {id:'a18',name:'Знайшов інвестора',test:function(s){return s.investor.on;}},
@@ -349,7 +429,12 @@ var IC={
  bkb:'<rect x="2" y="7" width="20" height="11" rx="2" stroke-dasharray="3 2"/>',
  bpad:'<rect x="3" y="6" width="18" height="12" rx="2" stroke-dasharray="3 2"/>',
  ckb:'<rect x="2" y="7" width="20" height="11" rx="2"/><path d="M6 11h12M6 14h12"/><circle cx="19" cy="5" r="2"/>',
- cpad:'<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M6 15l3-4 3 3 2-2 4 3"/>'
+ cpad:'<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M6 15l3-4 3 3 2-2 4 3"/>',
+ earbuds:'<path d="M5 14v-2a7 7 0 0114 0v2"/><circle cx="6" cy="17" r="2"/><circle cx="18" cy="17" r="2"/>',
+ wmouse:'<rect x="8" y="3" width="8" height="18" rx="4"/><path d="M12 3v6M12 21v2"/>',
+ tws:'<path d="M8 4a3 3 0 013 3v6a2 2 0 01-4 0V7a3 3 0 011-3zM16 4a3 3 0 00-3 3v6a2 2 0 004 0V7a3 3 0 00-1-3z"/>',
+ kbpro:'<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h1M9 10h1M12 10h1M15 10h1M18 10h1M6 14h12"/><circle cx="20" cy="4" r="1.5"/>',
+ dock:'<rect x="3" y="11" width="18" height="7" rx="2"/><path d="M7 14h2M11 14h2M15 14h2M8 8l4-4 4 4"/>'
 };
 function icon(id,sz){sz=sz||30;return '<svg viewBox="0 0 24 24" width="'+sz+'" height="'+sz+'" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+IC[id]+'</svg>';}
 function P(id){for(var i=0;i<PRODUCTS.length;i++)if(PRODUCTS[i].id===id)return PRODUCTS[i];}
@@ -359,7 +444,8 @@ function fix(s){
   PRODUCTS.forEach(function(p){
     if(s.price[p.id]===undefined)s.price[p.id]=p.ua;
     if(s.trend[p.id]===undefined)s.trend[p.id]=1;
-    if(s.listed[p.id]===undefined)s.listed[p.id]=p.unlock===0&&!p.blank&&!p.own;
+    if(s.listed[p.id]===undefined)s.listed[p.id]=!p.blank&&!p.own&&(isFree(s)?unlocked(s,p):p.unlock===0);
+    if(isFree(s)&&s.listed[p.id]&&!p.blank&&!p.own&&!unlocked(s,p))s.listed[p.id]=false;
   });
   if(!s.tour)s.tour={price:false};
   if(!s.cool)s.cool={story:6};
@@ -393,11 +479,12 @@ function fix(s){
   return s;
 }
 function newDaily(s){
-  var k=1+lvl(s).i*0.6;
+  var k=1+lvl(s).i*0.5,n=Math.round(10*k),g=Math.round(500*k);
+  s.daily.start=s.day;s.daily.u=0;s.daily.p=0;s.daily.o=false;
   s.daily.tasks=[
-   {id:'units',text:'Продай '+Math.round(6*k)+' шт.',goal:Math.round(6*k),reward:Math.round(200*k),done:false},
-   {id:'profit',text:'Заробити '+fmt(300*k)+' грн за день',goal:Math.round(300*k),reward:Math.round(250*k),done:false},
-   {id:'order',text:'Зроби замовлення в Китаї',goal:1,reward:Math.round(120*k),done:false}
+   {id:'units',text:'Продай '+n+' шт. за тиждень',goal:n,reward:Math.round(500*k),done:false},
+   {id:'profit',text:'Заробити '+fmt(g)+' грн за тиждень',goal:g,reward:Math.round(600*k),done:false},
+   {id:'order',text:'Зроби замовлення в Китаї',goal:1,reward:Math.round(250*k),done:false}
   ];
 }
 function newState(mode){
@@ -405,19 +492,21 @@ function newState(mode){
     inv:{},transit:[],listed:{},price:{},trend:{},comp:{},buzz:{},
     up:{olx:0,prom:0,photo:0,site:0,agent:0},log:[],report:null,won:false,over:false,vat:false,
     title:{},contracts:[],nextContract:3,cid:0,cdone:0,staff:{assistant:0,packer:0,manager:0},ban:0,insured:false,ach:{},streak:0,boarded:false};
-  PRODUCTS.forEach(function(p){s.price[p.id]=p.ua;s.trend[p.id]=1;s.listed[p.id]=p.unlock===0&&!p.blank&&!p.own;});
+  PRODUCTS.forEach(function(p){s.price[p.id]=p.ua;s.trend[p.id]=1;});
   s.log.push({d:0,t:'Старт: 10 000 грн і порожній склад. Перше замовлення — на вкладці «Закупівля».'});
+  s.mode=mode||'free';
   fix(s);
   if(mode&&mode!=='free'){s.mode=mode;applyMode(s);}
+  if(isFree(s)&&META.reb){s.cash+=1500*META.reb;s.log.push({d:0,t:'Бонус переродів: +'+fmt(1500*META.reb)+' грн до стартового капіталу.'});}
   return s;
 }
-var MKEY='cargo-tycoon-meta';
+var MKEY='cargo-tycoon-meta'+PSUF;
 function normMeta(m){
   m=m&&typeof m==='object'?m:{};
   m.pts=Math.max(0,+m.pts||0);m.up=m.up||{};
   ['cash','ship','slot','rep','dem','pick'].forEach(function(k){m.up[k]=Math.max(0,+m.up[k]||0);});
   m.endings=m.endings||{};m.best=m.best||{};m.best.season=+m.best.season||0;m.best.weekly=m.best.weekly||{};
-  m.rev=+m.rev||0;m.runs=+m.runs||0;return m;
+  m.rev=+m.rev||0;m.runs=+m.runs||0;m.reb=Math.max(0,+m.reb||0);return m;
 }
 var META=(function(){var m=null;try{m=JSON.parse(localStorage.getItem(MKEY));}catch(e){}return normMeta(m);})();
 function metaSave(){META.rev++;try{localStorage.setItem(MKEY,JSON.stringify(META));}catch(e){}}
@@ -540,6 +629,8 @@ function mktM(s,id){return (s.mode==='free'||s.mode==='season')&&typeof MKT==='o
 function mkt(s,id){var p=P(id);return Math.round(mktM(s,id)*p.ua*(1+0.08*s.brand.lvl)*s.trend[id]*(s.comp[id]?s.comp[id].m:1)*Math.pow(s.rate/45,0.6)/5)*5;}
 function unlocked(s,p){
   if(p.blank||p.own)return false;
+  if(isFree(s))return lvl(s).i>=(p.lv||0);
+  if(p.freeOnly)return false;
   var f=(s.mode==='season'||s.mode==='weekly')?0.4:1;
   return s.sold>=Math.round(p.unlock*f);
 }
@@ -592,18 +683,20 @@ function rivalsTick(s){
   s.rivals.forEach(function(r){r.pf=Math.round(clamp(r.pf+(Math.random()-0.5)*0.05+(0.97-r.pf)*0.06,0.8,1.1)*1000)/1000;});
 }
 function dailyCheck(s,r,net){
-  var any=false;
-  s.daily.tasks.forEach(function(t){
+  var d=s.daily;
+  if(d.start===undefined||!d.tasks.length||d.tasks[0].text.indexOf('тиждень')<0)newDaily(s);
+  d.u+=r.units;d.p+=Math.max(0,net);if(s.ordered)d.o=true;s.ordered=false;
+  d.tasks.forEach(function(t){
     if(t.done)return;
-    var ok=t.id==='units'?r.units>=t.goal:t.id==='profit'?net>=t.goal:s.ordered;
-    if(ok){t.done=true;any=true;s.cash+=t.reward;s.profit+=t.reward;log('Завдання виконано: '+t.text+'. +'+fmt(t.reward)+' грн.');}
+    var ok=t.id==='units'?d.u>=t.goal:t.id==='profit'?d.p>=t.goal:d.o;
+    if(ok){t.done=true;s.cash+=t.reward;s.profit+=t.reward;log('Завдання виконано: '+t.text+'. +'+fmt(t.reward)+' грн.');toast('Завдання виконано: +'+fmt(t.reward)+' грн');}
   });
-  s.ordered=false;
-  if(any){
-    s.daily.streak++;if(s.daily.streak>s.daily.best)s.daily.best=s.daily.streak;
-    if(s.daily.streak%7===0){s.cash+=1000;s.profit+=1000;log('Серія '+s.daily.streak+' днів: бонус 1 000 грн.');}
-  } else s.daily.streak=0;
-  newDaily(s);
+  if(s.day-d.start>=7){
+    var all=d.tasks.every(function(t){return t.done;});
+    if(all){d.streak++;if(d.streak>d.best)d.best=d.streak;if(d.streak%3===0){s.cash+=2000;s.profit+=2000;log('Серія '+d.streak+' тижнів: бонус 2 000 грн.');}}
+    else d.streak=0;
+    newDaily(s);
+  }
 }
 function checkAch(){ACH.forEach(function(a){if(S.ach[a.id]===undefined&&a.test(S)){S.ach[a.id]=S.day;log('Досягнення: '+a.name+'.');toast('Досягнення: '+a.name);sfx('ach');confetti();}});}
 function pushBoard(){
@@ -646,7 +739,7 @@ function demand(s,p,price,tr){
   if(price>m*1.5||price<=0)return 0;
   var f=Math.min(2.2,Math.pow(m/price,2.2));
   var se=season(s.date);
-  return p.dem*(hasPerk(s,'p_dem')?1.12:1)*(1+0.03*mm('dem'))*tr.T*se.m*(se.boost&&se.boost[p.id]||1)*(s.buzz[p.id]?s.buzz[p.id].m:1)*f*(1+titleScore(s.title[p.id]))*rivalMult(s,p,price);
+  return p.dem*(isFree(s)?FREE_DEM*(1+0.08*rbN(s)):1)*(hasPerk(s,'p_dem')?1.12:1)*(1+0.03*mm('dem'))*tr.T*se.m*(se.boost&&se.boost[p.id]||1)*(s.buzz[p.id]?s.buzz[p.id].m:1)*f*(1+titleScore(s.title[p.id]))*rivalMult(s,p,price);
 }
 function gauss(){var u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
 function poisson(l){
@@ -659,9 +752,9 @@ function poisson(l){
 function addDays(s,n){var d=new Date(s+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);}
 function dateLabel(s){return new Date(s+'T12:00:00Z').toLocaleDateString('uk-UA',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'});}
 function lvl(s){
-  var i=0;LEVELS.forEach(function(l,k){if(s.sold>=l[0])i=k;});
-  var nx=LEVELS[i+1];
-  return {i:i,name:LEVELS[i][1],from:LEVELS[i][0],next:nx?nx[0]:null,pct:nx?(s.sold-LEVELS[i][0])/(nx[0]-LEVELS[i][0]):1};
+  var T=LV(s),i=0;T.forEach(function(l,k){if(s.sold>=l[0])i=k;});
+  var nx=T[i+1];
+  return {i:i,name:T[i][1],from:T[i][0],next:nx?nx[0]:null,pct:nx?(s.sold-T[i][0])/(nx[0]-T[i][0]):1};
 }
 function capital(s){
   var c=s.cash;
@@ -841,14 +934,14 @@ function run(n){
   }
   S.report=agg;
   if(agg.units>0)sfx('sale');
-  var a=lvl({sold:sold0}).i,b=lvl(S).i;
-  if(b>a){var m='Новий рівень: '+LEVELS[b][1]+'.';log(m);toast(m);sfx('level');confetti();}
+  var a=lvl({sold:sold0,mode:S.mode}).i,b=lvl(S).i;
+  if(b>a)levelUp(a,b);
   var opened=[];
   PRODUCTS.forEach(function(p){if(p.unlock>0&&sold0<p.unlock&&S.sold>=p.unlock)opened.push(p.name);});
   SUPPLIERS.forEach(function(x){if(x.unlock>0&&sold0<x.unlock&&S.sold>=x.unlock)opened.push('постачальник '+x.name);});
   Object.keys(UPG).forEach(function(k){var u=UPG[k];if(u.unlock>0&&sold0<u.unlock&&S.sold>=u.unlock)opened.push('розвиток: '+u.name);});
-  if(opened.length){log('Відкрито: '+opened.join(', ')+'.');}
-  if(S.mode==='free'&&!S.won&&capital(S)>=GOAL){S.won=true;log('Мета досягнута: капітал '+fmt(capital(S))+' грн. Можна грати далі.');toast('Мета досягнута: 200 000 грн капіталу');}
+  if(opened.length&&!isFree(S)){log('Відкрито: '+opened.join(', ')+'.');}
+  if(S.mode==='free'&&!S.won&&capital(S)>=GOAL){S.won=true;log('Мета досягнута: капітал '+fmt(capital(S))+' грн. Можна грати далі.');toast('Мета досягнута: 1 000 000 грн капіталу');}
   checkAch();
   if(S.over&&!S.boarded){pushBoard();S.boarded=true;}
   if(S.limit&&S.day>=S.limit&&!S.end&&!S.over)finishRun();
@@ -859,6 +952,7 @@ function supStep(sup){return sup.moq>=20?10:sup.moq>=10?5:1;}
 function setQty(id,q){var sup=SUP(ui.sup);ui.qty[id]=clamp(Math.round(q)||sup.moq,sup.moq,9999);}
 function order(id){
   var p=P(id),sup=SUP(ui.sup),q=ui.qty[id]||sup.moq;
+  if(!supOK(S,sup)){ui.sup='taobao';toast('Цей постачальник ще закритий');return;}
   if(q<sup.moq){toast('У '+sup.name+' мінімум '+sup.moq+' шт.');return;}
   if(stockTotal(S)+transitQ(S)+q>whCap(S)){toast('Склад заповнений: ліміт '+whCap(S)+' шт. Збільш його в «Розвитку».');return;}
   var unit=unitCost(S,p,sup),total=unit*q;
@@ -868,7 +962,7 @@ function order(id){
   var eta=S.day+sup.days+Math.floor(rnd()*3);
   S.transit.push({id:id,q:q,cost:unit,defect:sup.defect,sup:sup.name,eta:eta,ins:S.insured,lost:rnd()<LOSS[sup.id]});
   log('Замовлено '+q+' шт. «'+p.name+'» у '+sup.name+' за '+fmt(total)+' грн. Очікуємо на день '+eta+'.');
-  toast('Замовлено: '+q+' шт., '+fmt(total)+' грн');
+  toast('Замовлено: '+q+' шт. Приїде '+dShort(addDays(S.date,Math.max(1,eta-S.day))));
   S.ordered=true;sfx('buy');
 }
 function toggle(id){
@@ -892,7 +986,7 @@ function appeal(){if(S.ban<=0)return;if(S.cash<500){toast('Не вистачає
 function staffToggle(k){
   var st=STAFF[k];
   if(S.staff[k]){S.staff[k]=0;log(st.name+' звільнений.');return;}
-  if(S.sold<st.unlock){toast('Відкриється після '+fmt(st.unlock)+' продажів');return;}
+  if(!stOK(S,k)){toast('Відкриється '+lockTxt(S,'t',k,st.unlock));return;}
   S.staff[k]=1;log('Найнято: '+st.name+' ('+st.pay+' грн/день).');checkAch();
 }
 function makeCode(){try{return btoa(unescape(encodeURIComponent(JSON.stringify({s:S,b:BOARD,m:META}))));}catch(e){return '';}}
@@ -961,9 +1055,9 @@ function invest(){
 }
 function stepPrice(id,dir){S.tour.price=true;var pr=S.price[id];var st=pr<300?5:pr<1500?10:50;S.price[id]=Math.max(10,pr+dir*st);}
 function buyUp(k){
-  var u=UPG[k],lv=S.up[k],cost=u.costs[lv];
+  var u=UPG[k],lv=S.up[k],cost=u.costs[lv];if(cost!==undefined&&isFree(S))cost=Math.round(cost*FREE_UP);
   if(cost===undefined)return;
-  if(S.sold<u.unlock){toast('Відкриється після '+fmt(u.unlock)+' продажів');return;}
+  if(!upOK(S,k)){toast('Відкриється '+lockTxt(S,'u',k,u.unlock));return;}
   if(S.cash<cost){toast('Не вистачає '+fmt(cost-S.cash)+' грн');return;}
   S.cash-=cost;S.up[k]++;
   log('Прокачано: '+u.name+' — «'+u.lv[S.up[k]]+'» за '+fmt(cost)+' грн.');
@@ -978,7 +1072,7 @@ function marginTag(m){
 
 function vHeader(L){
   var tabs=[['home','Огляд'],['buy','Закупівля'],['stock','Склад'],['grow','Розвиток'],['modes','Режими'],['log','Рекорди']];
-  return '<header class="hdr"><div class="hdr-top"><div><div class="brand">Карго-Тайкун</div><div class="date">'+dateLabel(S.date)+' · день '+S.day+(S.limit?' з '+S.limit:'')+'</div></div>'+
+  return '<header class="hdr"><div class="hdr-top"><div><div class="brand">Карго-Тайкун'+(PF?' <span class="sub" style="text-transform:none;letter-spacing:0">· '+esc(pfName())+'</span>':'')+'</div><div class="date">'+dateLabel(S.date)+' · день '+S.day+(S.limit?' з '+S.limit:'')+'</div></div>'+
     '<div class="cash"><span class="lbl">Готівка</span><b>'+fmt(S.cash)+' грн</b></div></div>'+
     '<div class="lvl"><span>Рівень '+(L.i+1)+' · '+L.name+'</span><div class="bar"><i style="width:'+Math.round(L.pct*100)+'%"></i></div><span class="n">'+fmt(S.sold)+(L.next?' / '+fmt(L.next):'')+' прод.</span></div>'+
     '<nav class="tabs" role="tablist">'+tabs.map(function(t){return '<button class="tab" role="tab" aria-selected="'+(ui.tab===t[0])+'" data-a="tab" data-v="'+t[0]+'">'+t[1]+'</button>';}).join('')+'</nav></header>';
@@ -1215,7 +1309,7 @@ function perkChoose(i){
 }
 function startMode(m){
   if(S.day>0&&!S.boarded&&!S.end)pushBoard();
-  S=newState(m);ui.tab='home';ui.qty={};ui.modeAsk='';ui.tourDone=false;
+  S=newState(m);ui.tab='home';ui.qty={};ui.sup='taobao';ui.q='';ui.rebAsk=false;ui.modeAsk='';ui.tourDone=false;
   save();if(typeof pushCloud==='function')pushCloud();
   if(m==='weekly'&&typeof fetchWeekly==='function')fetchWeekly();
 }
@@ -1235,7 +1329,7 @@ function metaBuy(id){
 }
 function vModes(){
   var h='<section><h2>Режими гри</h2><p class="hint" style="margin-top:0">Зараз: '+modeName(S.mode)+(S.limit?' · день '+S.day+' із '+S.limit:'')+'.</p>';
-  var list=[['free','Вільна гра','Без ліміту днів, мета: 200 000 грн.'],['campaign','Кампанія «Шлях тайкуна»','90 днів, герої, рішення й '+Object.keys(ENDINGS).length+' кінцівок. Відкрито: '+Object.keys(META.endings).length+'.'],['season','Сезон-забіг','30 днів, випадкові умови й покращення. За результат отримуєш очки для постійної прокачки.'],['weekly','Тижневий виклик '+weekId(),'14 днів, однаковий старт у всіх. Найкращий результат тижня: '+(META.best.weekly[weekId()]?fmt(META.best.weekly[weekId()])+' грн':'ще нема')+'.']];
+  var list=[['free','Вільна гра','Без ліміту днів, мета: 1 000 000 грн.'],['campaign','Кампанія «Шлях тайкуна»','90 днів, герої, рішення й '+Object.keys(ENDINGS).length+' кінцівок. Відкрито: '+Object.keys(META.endings).length+'.'],['season','Сезон-забіг','30 днів, випадкові умови й покращення. За результат отримуєш очки для постійної прокачки.'],['weekly','Тижневий виклик '+weekId(),'14 днів, однаковий старт у всіх. Найкращий результат тижня: '+(META.best.weekly[weekId()]?fmt(META.best.weekly[weekId()])+' грн':'ще нема')+'.']];
   list.forEach(function(m){
     var ask=ui.modeAsk===m[0];
     h+='<div class="mode'+(S.mode===m[0]?' cur':'')+'"><h3>'+m[1]+'</h3><p class="hint">'+m[2]+'</p>'+
@@ -1296,6 +1390,41 @@ function guideOpen(i){
   i=i||0;var g=GUIDE[i],last=i===GUIDE.length-1;
   var d=mgOpen('<h2 style="margin:0 0 8px">'+g[0]+'</h2><p>'+g[1]+'</p><p class="hint">Крок '+(i+1)+' з '+GUIDE.length+'</p><div class="ctl"><button class="btn" data-a="guidego" data-v="'+(last?-1:i+1)+'">'+(last?'Зрозуміло, грати!':'Далі')+'</button>'+(last?'':'<button class="btn ghost" data-a="guidego" data-v="-1">Пропустити</button>')+'</div>');
 }
+function pfSave(){try{localStorage.setItem('cargo-profiles',JSON.stringify(PF));}catch(e){}}
+function pfName(){var n='';if(PF)PF.list.forEach(function(p){if(p.id===PF.cur)n=p.name;});return n;}
+function pfClean(v){v=String(v||'').replace(/[<>&"]/g,'').trim().slice(0,20);return v;}
+function pfCreate(name,first){
+  name=pfClean(name)||'Гравець';
+  if(!PF){PF={cur:'p0',list:[{id:'p0',name:name}]};pfSave();return true;}
+  var id='p'+Date.now().toString(36);
+  PF.list.push({id:id,name:name});PF.cur=id;pfSave();
+  try{location.reload();}catch(e){}
+  return true;
+}
+function pfSwitch(id){
+  if(!PF||PF.cur===id)return;
+  if(PF.list.some(function(p){return p.id===id;})){PF.cur=id;pfSave();try{location.reload();}catch(e){}}
+}
+function pfDelete(id){
+  if(!PF||PF.cur===id||PF.list.length<2)return;
+  var suf=id==='p0'?'':':'+id;
+  try{localStorage.removeItem('cargo-tycoon-v2'+suf);localStorage.removeItem('cargo-tycoon-board'+suf);localStorage.removeItem('cargo-tycoon-meta'+suf);}catch(e){}
+  PF.list=PF.list.filter(function(p){return p.id!==id;});pfSave();
+}
+function profileOpen(){
+  mgOpen('<h2>Створи свій профіль</h2><p>Введи ім’я, і твій прогрес зберігатиметься під ним на цьому пристрої. Інші люди зможуть створити свої профілі й грати окремо.</p><label class="fld"><span>Ім’я гравця</span><input class="ttl" id="pfn" type="text" maxlength="20" placeholder="Наприклад, Макс" autocomplete="off"></label><div class="ctl"><button class="btn" id="pfok">Створити профіль</button></div>');
+  var ok=document.getElementById('pfok');
+  function go(){var i=document.getElementById('pfn');pfCreate(i?i.value:'',true);mgClose();render();try{if(!localStorage.getItem('cargo-guide'))setTimeout(function(){guideOpen(0);},300);}catch(e){}}
+  if(ok)ok.addEventListener('click',go);
+  var inp=document.getElementById('pfn');if(inp)inp.addEventListener('keydown',function(e){if(e.key==='Enter')go();});
+}
+function vProfile(){
+  if(!PF)return '';
+  return '<section><h2>Профіль</h2><div class="card"><p class="hint" style="margin-top:0">Зараз грає: <b>'+esc(pfName())+'</b>. Прогрес кожного профілю зберігається окремо на цьому пристрої.</p>'+
+   PF.list.map(function(p){var cur=p.id===PF.cur;return '<div class="ln"><span>'+(cur?'✓ ':'')+esc(p.name)+'</span><span>'+(cur?'<span class="sub">зараз</span>':'<button class="btn sm ghost" data-a="pfgo" data-v="'+p.id+'">Грати</button> '+(ui.pfAsk===p.id?'<button class="btn sm" data-a="pfdel" data-v="'+p.id+'">Точно видалити</button>':'<button class="btn sm ghost" data-a="pfask" data-v="'+p.id+'">Видалити</button>'))+'</span></div>';}).join('')+
+   '<div class="ctl" style="margin-top:12px"><label class="fld" style="flex:1"><span>Новий профіль</span><input class="ttl" id="pfn" type="text" maxlength="20" placeholder="Ім’я" autocomplete="off"></label><button class="btn sm" data-a="pfnew">Створити й перейти</button></div>'+
+   '<p class="hint">Щоб перенести профіль на інший пристрій, скопіюй код збереження нижче й встав його там.</p></div></section>';
+}
 function guideDone(){try{localStorage.setItem('cargo-guide','1');}catch(e){}}
 function mgOpen(inner){
   mgClose();
@@ -1311,6 +1440,7 @@ function mgDone(html){
 }
 function kLvl(){return 1+lvl(S).i*0.6;}
 function haggle(){
+  if(!mgOK('haggle')){toast('Відкриється на рівні '+(MG_LV.haggle+1));return;}
   if(cool('haggle')>0){toast('Торг знову можна через '+cool('haggle')+' дн.');return;}
   var un=PRODUCTS.filter(function(p){return unlocked(S,p);}),p=pick(un);
   mgOpen('<h2>Торг: «'+esc(p.name)+'»</h2><p class="hint" style="margin-top:0">Зупини повзунок у зеленій зоні. Чим ближче до центру, тим більша знижка на закупівлю.</p><div class="hg"><span class="hz"></span><span class="hm" id="hm"></span></div><div class="ctl"><button class="btn" id="hstop">Стоп</button><button class="btn ghost" id="hx">Закрити</button></div>');
@@ -1320,14 +1450,15 @@ function haggle(){
   document.getElementById('hx').addEventListener('click',function(){mgClose();});
   document.getElementById('hstop').addEventListener('click',function(){
     cancelAnimationFrame(mgRaf);
-    var d=Math.abs(pos-0.5),pct=d<0.06?0.35:d<0.14?0.25:d<0.26?0.12:0.03;
-    S.deal={id:p.id,pct:pct,d:3};S.cool.haggle=S.day+4;
-    if(pct>=0.25)S.cnt.haggle++;
-    log('Торг з постачальником: «'+p.name+'» −'+Math.round(pct*100)+'% на 3 дні.');
-    mgDone('<h2>'+(pct>=0.25?'Вдалий торг':'Постачальник майже не поступився')+'</h2><p>Знижка на «'+esc(p.name)+'»: <b>'+Math.round(pct*100)+'%</b> протягом 3 днів.</p>');
+    var d=Math.abs(pos-0.5),pct=d<0.06?0.45:d<0.14?0.35:d<0.26?0.2:0.05;
+    S.deal={id:p.id,pct:pct,d:5};S.cool.haggle=S.day+18;
+    if(pct>=0.35)S.cnt.haggle++;
+    log('Торг з постачальником: «'+p.name+'» −'+Math.round(pct*100)+'% на 5 днів.');
+    mgDone('<h2>'+(pct>=0.35?'Вдалий торг':'Постачальник майже не поступився')+'</h2><p>Знижка на «'+esc(p.name)+'»: <b>'+Math.round(pct*100)+'%</b> протягом 5 днів.</p>');
   });
 }
 function pack(){
+  if(!mgOK('pack')){toast('Відкриється на рівні '+(MG_LV.pack+1));return;}
   if(cool('pack')>0){toast('Аврал знову можна через '+cool('pack')+' дн.');return;}
   var cells='',i;for(i=0;i<9;i++)cells+='<button class="pk" data-i="'+i+'" aria-label="Посилка"></button>';
   mgOpen('<h2>Аврал на складі</h2><p class="hint" style="margin-top:0">10 секунд. Тисни на комірку, що світиться: це посилка, яку треба запакувати.</p><div class="pkg" id="pg">'+cells+'</div><p style="margin:0">Залишилось: <b id="pt">10</b> с · Запаковано: <b id="ps">0</b></p>');
@@ -1343,8 +1474,8 @@ function pack(){
     var pt=document.getElementById('pt');if(pt)pt.textContent=Math.ceil(left/10);
     if(left<=0){
       clearInterval(mgTimer);mgTimer=null;
-      var rw=Math.round(score*10*kLvl());
-      S.cash+=rw;S.profit+=rw;S.cool.pack=S.day+3;S.cnt.pack++;S.cnt.packBest=Math.max(S.cnt.packBest,score);
+      var rw=Math.round(score*25*kLvl());
+      S.cash+=rw;S.profit+=rw;S.cool.pack=S.day+22;S.cnt.pack++;S.cnt.packBest=Math.max(S.cnt.packBest,score);
       if(score>=12)S.rep=clamp(S.rep+2,0,100);
       log('Аврал на складі: '+score+' посилок, премія '+fmt(rw)+' грн.');
       if(score>=12)confetti();
@@ -1353,15 +1484,16 @@ function pack(){
   },100);
 }
 var WHEEL=[
- {w:3,t:'+200 грн',f:function(s){var v=Math.round(200*kLvl());s.cash+=v;s.profit+=v;return '+'+fmt(v)+' грн';}},
- {w:2,t:'+600 грн',f:function(s){var v=Math.round(600*kLvl());s.cash+=v;s.profit+=v;return '+'+fmt(v)+' грн';}},
- {w:1,t:'Джекпот +2000 грн',f:function(s){var v=Math.round(2000*kLvl());s.cash+=v;s.profit+=v;confetti();return 'Джекпот: +'+fmt(v)+' грн';}},
+ {w:3,t:'+400 грн',f:function(s){var v=Math.round(400*kLvl());s.cash+=v;s.profit+=v;return '+'+fmt(v)+' грн';}},
+ {w:2,t:'+1500 грн',f:function(s){var v=Math.round(1500*kLvl());s.cash+=v;s.profit+=v;return '+'+fmt(v)+' грн';}},
+ {w:1,t:'Джекпот +5000 грн',f:function(s){var v=Math.round(5000*kLvl());s.cash+=v;s.profit+=v;confetti();return 'Джекпот: +'+fmt(v)+' грн';}},
  {w:2,t:'Рейтинг +5',f:function(s){s.rep=clamp(s.rep+5,0,100);return 'Рейтинг +5';}},
- {w:2,t:'Попит ×2 на 3 дні',f:function(s){var p=pick(PRODUCTS.filter(function(q){return unlocked(s,q);}));s.buzz[p.id]={m:2,d:3};return 'Попит ×2 на «'+p.name+'»';}},
- {w:2,t:'Знижка 25% у Китаї',f:function(s){var p=pick(PRODUCTS.filter(function(q){return unlocked(s,q);}));s.deal={id:p.id,pct:0.25,d:3};return 'Знижка 25% на «'+p.name+'»';}},
+ {w:2,t:'Попит ×2 на 5 днів',f:function(s){var p=pick(PRODUCTS.filter(function(q){return unlocked(s,q);}));s.buzz[p.id]={m:2,d:5};return 'Попит ×2 на «'+p.name+'»';}},
+ {w:2,t:'Знижка 30% у Китаї',f:function(s){var p=pick(PRODUCTS.filter(function(q){return unlocked(s,q);}));s.deal={id:p.id,pct:0.3,d:5};return 'Знижка 30% на «'+p.name+'»';}},
  {w:2,t:'Нічого цього разу',f:function(){return 'Цього разу без приза';}}
 ];
 function spin(){
+  if(!mgOK('spin')){toast('Відкриється на рівні '+(MG_LV.spin+1));return;}
   if(cool('spin')>0){toast('Колесо знову можна через '+cool('spin')+' дн.');return;}
   mgOpen('<h2>Колесо удачі</h2><div class="slot" id="sl">…</div>');
   var i=0,n=0;
@@ -1371,7 +1503,7 @@ function spin(){
       clearInterval(mgTimer);mgTimer=null;
       var tot=WHEEL.reduce(function(a,x){return a+x.w;},0),r=Math.random()*tot,pick1=WHEEL[0],k;
       for(k=0;k<WHEEL.length;k++){r-=WHEEL[k].w;if(r<=0){pick1=WHEEL[k];break;}}
-      var txt=pick1.f(S);S.cool.spin=S.day+5;S.cnt.spin++;log('Колесо удачі: '+txt+'.');
+      var txt=pick1.f(S);S.cool.spin=S.day+14;S.cnt.spin++;log('Колесо удачі: '+txt+'.');
       mgDone('<h2>Випало</h2><div class="slot">'+esc(txt)+'</div>');
     }
   },110);
@@ -1387,8 +1519,8 @@ function dump(id){
 }
 function vQuick(){
   var s=S;
-  function b(a,t,k){var c=cool(k);return '<button class="btn sm'+(c?' ghost':'')+'" data-a="'+a+'"'+(c?' disabled':'')+'>'+t+(c?' · через '+c+' дн.':'')+'</button>';}
-  return '<section><h2>Швидкі дії</h2><div class="card"><p class="hint" style="margin-top:0">Міні-ігри дають гроші, знижки й рейтинг. Кожна відновлюється за кілька днів.</p><div class="ctl">'+b('spin','Колесо удачі','spin')+b('pack','Аврал на складі','pack')+b('haggle','Торг у Китаї','haggle')+'</div></div></section>';
+  function b(a,t,k){var c=cool(k),lk=!mgOK(k);return '<button class="btn sm'+(c||lk?' ghost':'')+'" data-a="'+a+'"'+(c||lk?' disabled':'')+'>'+t+(lk?' · рівень '+(MG_LV[k]+1):c?' · через '+c+' дн.':'')+'</button>';}
+  return '<section><h2>Міні-ігри</h2><div class="card"><p class="hint" style="margin-top:0">Рідкі бонуси: великі гроші, знижки й рейтинг. Нові міні-ігри відкриваються з рівнями, а кожна відновлюється кілька тижнів.</p><div class="ctl">'+b('spin','Колесо удачі','spin')+b('haggle','Торг у Китаї','haggle')+b('pack','Аврал на складі','pack')+'</div></div></section>';
 }
 function vDump(){
   var s=S,list=PRODUCTS.filter(function(p){var it=s.inv[p.id];return it&&it.qty>=3&&avail(s,p);});
@@ -1403,7 +1535,7 @@ function vTour(){
    ['Зачекай, поки посилка доїде',s.sold>0||PRODUCTS.some(function(p){return s.inv[p.id]&&s.inv[p.id].qty>0;})],
    ['Зроби перший продаж',s.sold>0],
    ['Зміни ціну товару на вкладці «Склад»',!!s.tour.price],
-   ['Виконай щоденне завдання',s.daily.tasks.some(function(t){return t.done;})]
+   ['Виконай завдання тижня',s.daily.tasks.some(function(t){return t.done;})]
   ];
   var n=st.filter(function(x){return x[1];}).length;
   if(n===st.length)return '';
@@ -1431,7 +1563,7 @@ function clkTick(){
 function vHome(){
   var s=S,tr=traffic(s),se=season(s.date),cap=capital(s),h='';
   h+=carousel('home',homeSlides());
-  h+=vTour()+vPerk()+vStory()+vQuick();
+  h+=vTour()+vPerk()+vStory()+(S.transit.length?vTransit():'')+nextLvlHtml()+vQuick();
   if(s.ban>0)h+='<section class="card"><h2>OLX заблокував акаунт</h2><p>Ще '+s.ban+' дн. без покупців з OLX.</p><div class="ctl"><button class="btn sm" data-a="appeal">Апеляція · 500 грн</button></div></section>';
   if(s.day===0&&!s.transit.length){
     h+='<section class="card"><h2>З чого почати</h2><p>У тебе 10 000 грн. Китайський посередник бере $18 за кілограм, тому важкі й дешеві речі з’їдають весь прибуток.</p>'+
@@ -1456,7 +1588,7 @@ function vHome(){
     '<div class="stat"><span>Прибуток усього</span><b class="'+(s.profit>=0?'pos':'neg')+'">'+sg(s.profit)+'</b></div>'+
     '<div class="stat"><span>Рейтинг продавця</span><b>'+fmt1(2.5+s.rep/40)+' / 5</b></div>'+
     '<div class="stat"><span>Повернень</span><b>'+fmt(s.returns)+'</b></div></div>'+
-    '<div class="lvl" style="margin-top:12px"><span>Мета: 200 000 грн капіталу</span><div class="bar"><i style="width:'+Math.round(clamp(cap/GOAL,0,1)*100)+'%"></i></div><span class="n">'+Math.round(clamp(cap/GOAL,0,1)*100)+'%</span></div></section>';
+    '<div class="lvl" style="margin-top:12px"><span>Мета: 1 000 000 грн капіталу</span><div class="bar"><i style="width:'+Math.round(clamp(cap/GOAL,0,1)*100)+'%"></i></div><span class="n">'+Math.round(clamp(cap/GOAL,0,1)*100)+'%</span></div></section>';
   return h;
 }
 
@@ -1471,11 +1603,13 @@ function banners(s,sup,col){
   return bn;
 }
 function vBuy(){
+  if(!supOK(S,SUP(ui.sup)))ui.sup='taobao';
   var s=S,sup=SUP(ui.sup),tr=traffic(s),col=MKC[sup.id]||MKC.taobao,q=(ui.q||'').trim().toLowerCase(),h='';
+  h+=vTransit();
   h+='<section class="mk" style="--mk1:'+col[0]+';--mk2:'+col[1]+'"><div class="mk-bar"><b class="mk-logo">'+sup.name+'</b><input class="mk-q" type="search" placeholder="Пошук у '+esc(sup.name)+'" value="'+esc(ui.q||'')+'" data-q="1" aria-label="Пошук товарів"></div>'+
    '<div class="seg mk-tabs">'+SUPPLIERS.map(function(x){
-     var ok=s.sold>=x.unlock;
-     return '<button class="chip stamp'+(x.id===sup.id?' on':'')+(ok?'':' lock')+'" data-a="sup" data-v="'+x.id+'"'+(ok?'':' disabled')+'><b>'+x.name+'</b><small>'+(ok?x.tag:'від '+fmt(x.unlock)+' продажів')+'</small></button>';
+     var ok=supOK(s,x);
+     return '<button class="chip stamp'+(x.id===sup.id?' on':'')+(ok?'':' lock')+'" data-a="sup" data-v="'+x.id+'"'+(ok?'':' disabled')+'><b>'+x.name+'</b><small>'+(ok?x.tag:lockTxt(s,'s',x.id,x.unlock))+'</small></button>';
    }).join('')+'</div>'+
    '<p class="hint" style="margin:6px 0 12px">'+sup.note+' Брак близько '+Math.round(sup.defect*100)+'%.</p>'+
    carousel('mk',banners(s,sup,col))+
@@ -1488,7 +1622,7 @@ function vBuy(){
     shown++;
     var tint='style="background:linear-gradient(135deg,'+col[0]+'22,'+col[1]+'44)"';
     if(!p.blank&&!unlocked(s,p)){
-      h+='<div class="pcard lock"><div class="pimg" '+tint+'><span class="pico">'+icon(p.id,52)+'</span></div><div class="pb"><b class="pn">'+p.name+'</b><div class="sub">Відкриється після '+fmt(p.unlock)+' продажів</div></div></div>';
+      h+='<div class="pcard lock"><div class="pimg" '+tint+'><span class="pico">'+icon(p.id,52)+'</span></div><div class="pb"><b class="pn">'+p.name+'</b><div class="sub">Відкриється '+lockTxt(s,'p',p.id,p.unlock)+'</div></div></div>';
       return;
     }
     var unit=unitCost(s,p,sup),m=mkt(s,p.id),margin=(m*(1-tr.comm)-unit)/unit;
@@ -1500,13 +1634,11 @@ function vBuy(){
      '<div class="sub">★ '+rating(sup)+' · продано '+soldN(p,sup)+'</div>'+
      '<div class="sub">'+(p.blank?'Для майстерні: збирається в готовий товар':'ринок '+fmt(m)+' грн '+marginTag(margin))+'</div>'+
      '<div class="step"><button data-a="qm" data-id="'+p.id+'" aria-label="Менше">−</button><input class="n" type="number" inputmode="numeric" min="'+sup.moq+'" value="'+qn+'" data-qty="'+p.id+'" aria-label="Кількість"><button data-a="qp" data-id="'+p.id+'" aria-label="Більше">+</button></div>'+
+     '<button class="btn sm ghost" data-a="qmax" data-id="'+p.id+'" style="margin-bottom:6px">Макс</button>'+
      '<button class="btn sm" data-a="order" data-id="'+p.id+'">Купити · '+fmt(total)+' грн</button></div></div>';
   });
   h+='</div>'+(shown?'':'<p class="hint">Нічого не знайдено.</p>')+'</section>';
-  h+='<section><h2>У дорозі</h2>';
-  if(!s.transit.length)h+='<p class="hint">Зараз нічого не їде.</p>';
-  else h+='<div class="card">'+s.transit.map(function(o){var d=Math.max(0,o.eta-s.day);return '<div class="ln"><span>'+o.q+' × '+P(o.id).name+' <span class="sub">· '+o.sup+'</span></span><span class="n">'+(d?'за '+d+' дн.':'завтра')+'</span></div>';}).join('')+'</div>';
-  return h+'</section>'+vCalc();
+  return h;
 }
 
 function fmtK(v){return Math.abs(v)>=1000?fmt1(v/1000)+' тис.':fmt(v);}
@@ -1535,9 +1667,10 @@ function vStats(){
    '<section><h2>Що приносить гроші</h2><div class="card">'+(rows.length?rows.map(function(r){return '<div class="prow"><span>'+r.p.name+'</span><span class="pbar"><i class="'+(r.v.pr>=0?'':'bad')+'" style="width:'+Math.round(Math.abs(r.v.pr)/mx*100)+'%"></i></span><span class="n">'+sg(r.v.pr)+'</span></div>';}).join(''):'<p class="hint" style="margin:0">Дані з’являться після перших продажів.</p>')+'</div></section>';
 }
 function vDaily(){
-  var d=S.daily;
-  return '<section><h2>Завдання на наступний день</h2><div class="card">'+d.tasks.map(function(t){return '<div class="ln"><span>'+t.text+'</span><span class="n">+'+fmt(t.reward)+' грн</span></div>';}).join('')+
-   '<div class="ln total"><span>Серія днів із виконаним завданням</span><span class="n">'+d.streak+' (рекорд '+d.best+')</span></div></div><p class="hint">Кожні 7 днів підряд дають бонус 1 000 грн.</p></section>';
+  var d=S.daily,left=Math.max(0,7-(S.day-(d.start||0)));
+  function pr(t){var v=t.id==='units'?d.u:t.id==='profit'?Math.round(d.p):(d.o?1:0);return t.done?'✓ виконано':Math.min(v,t.goal)+' / '+t.goal;}
+  return '<section><h2>Завдання на тиждень</h2><div class="card">'+d.tasks.map(function(t){return '<div class="ln"><span class="'+(t.done?'done':'')+'">'+t.text+' <span class="sub">· '+pr(t)+'</span></span><span class="n">+'+fmt(t.reward)+' грн</span></div>';}).join('')+
+   '<div class="ln total"><span>Нові завдання через</span><span class="n">'+left+' дн.</span></div><div class="ln"><span>Серія тижнів із усіма завданнями</span><span class="n">'+d.streak+' (рекорд '+d.best+')</span></div></div><p class="hint">Прогрес накопичується протягом тижня. Кожні 3 виконані тижні підряд дають бонус 2 000 грн.</p></section>';
 }
 function vRivals(){
   var ps=PRODUCTS.filter(function(p){return S.listed[p.id]&&avail(S,p);});
@@ -1652,27 +1785,31 @@ function vStock(){
 function vStaff(){
   var s=S;
   return '<section><h2>Команда</h2><div>'+Object.keys(STAFF).map(function(k){
-    var st=STAFF[k],on=!!s.staff[k],lock=s.sold<st.unlock;
-    return '<div class="up"><div class="top"><b>'+st.name+'</b><span class="n">'+st.pay+' грн/день</span></div><div class="sub">'+st.desc+'</div><div class="ctl"><button class="btn sm'+(on?' ghost':'')+'" data-a="staff" data-v="'+k+'"'+(lock&&!on?' disabled':'')+'>'+(on?'Звільнити':lock?'Відкриється після '+fmt(st.unlock)+' продажів':'Найняти')+'</button></div></div>';
+    var st=STAFF[k],on=!!s.staff[k],lock=!stOK(s,k);
+    return '<div class="up"><div class="top"><b>'+st.name+'</b><span class="n">'+st.pay+' грн/день</span></div><div class="sub">'+st.desc+'</div><div class="ctl"><button class="btn sm'+(on?' ghost':'')+'" data-a="staff" data-v="'+k+'"'+(lock&&!on?' disabled':'')+'>'+(on?'Звільнити':lock?'Відкриється '+lockTxt(s,'t',k,st.unlock):'Найняти')+'</button></div></div>';
   }).join('')+'</div></section>';
 }
 
 function vGrow(){
   var s=S,h='<section><h2>Прокачка</h2><div>';
   Object.keys(UPG).forEach(function(k){
-    var u=UPG[k],lv=s.up[k],max=u.costs.length,cost=u.costs[lv],lock=s.sold<u.unlock,pips='';
+    var u=UPG[k],lv=s.up[k],max=u.costs.length,cost=u.costs[lv],lock=!upOK(s,k),pips='';if(cost!==undefined&&isFree(s))cost=Math.round(cost*FREE_UP);
     for(var i=0;i<max;i++)pips+='<i class="'+(i<lv?'on':'')+'"></i>';
     h+='<div class="up"><div class="top"><b>'+u.name+'</b><span class="n">'+lv+' / '+max+'</span></div><div class="pips">'+pips+'</div>'+
       '<div class="sub">Зараз: '+u.lv[lv]+'</div><div class="sub">'+u.desc+'</div>'+
       (cost===undefined?'<div class="sub done">Максимальний рівень</div>':
-        '<div class="ctl"><button class="btn sm" data-a="up" data-v="'+k+'"'+(lock?' disabled':'')+'>'+(lock?'Відкриється після '+fmt(u.unlock)+' продажів':'«'+u.lv[lv+1]+'» · '+fmt(cost)+' грн')+'</button></div>')+'</div>';
+        '<div class="ctl"><button class="btn sm" data-a="up" data-v="'+k+'"'+(lock?' disabled':'')+'>'+(lock?'Відкриється '+lockTxt(s,'u',k,u.unlock):'«'+u.lv[lv+1]+'» · '+fmt(cost)+' грн')+'</button></div>')+'</div>';
   });
-  h+='</div></section>'+vBrand()+vWarehouse()+vWorkshop()+vBank()+vStaff()+'<section><h2>Рівні й відкриття</h2><div class="card">';
+  h+='</div></section>'+vRebirth()+vBrand()+vWarehouse()+vWorkshop()+vBank()+vStaff()+'<section><h2>Рівні й відкриття</h2><div class="card">';
   var items=[];
-  PRODUCTS.forEach(function(p){if(p.unlock>0)items.push([p.unlock,'Товар: '+p.name]);});
+  if(isFree(s)){
+    LEVELS_F.forEach(function(l,i){if(i>0)items.push([l[0],'Рівень '+(i+1)+' «'+l[1]+'»: '+(openedAt(i).join('; ')||'—')]);});
+  }else{
+  PRODUCTS.forEach(function(p){if(p.unlock>0&&!p.freeOnly)items.push([p.unlock,'Товар: '+p.name]);});
   SUPPLIERS.forEach(function(x){if(x.unlock>0)items.push([x.unlock,'Постачальник: '+x.name]);});
   Object.keys(UPG).forEach(function(k){if(UPG[k].unlock>0)items.push([UPG[k].unlock,'Прокачка: '+UPG[k].name]);});
-  LEVELS.forEach(function(l){if(l[0]>0)items.push([l[0],'Рівень «'+l[1]+'»']);});
+  LV(s).forEach(function(l){if(l[0]>0)items.push([l[0],'Рівень «'+l[1]+'»']);});
+  }
   items.sort(function(a,b){return a[0]-b[0];});
   h+=items.map(function(it){var ok=s.sold>=it[0];return '<div class="ln"><span class="'+(ok?'done':'')+'">'+(ok?'✓ ':'')+it[1]+'</span><span class="n">'+fmt(it[0])+'</span></div>';}).join('');
   return h+'</div><p class="hint">Число справа — скільки продажів потрібно.</p></section>';
@@ -1682,6 +1819,7 @@ function vRecords(){
   var s=S,n=ACH.filter(function(a){return s.ach[a.id]!==undefined;}).length;
   var h=vStats()+'<section><h2>Досягнення · '+n+' із '+ACH.length+'</h2><div class="card">'+ACH.map(function(a){var d=s.ach[a.id],ok=d!==undefined;return '<div class="ln"><span class="'+(ok?'done':'')+'">'+(ok?'✓ ':'')+a.name+'</span><span class="n">'+(ok?'день '+d:'—')+'</span></div>';}).join('')+'</div></section>';
   h+='<section><h2>Таблиця рекордів</h2><div class="card">'+(BOARD.length?BOARD.slice(0,5).map(function(b,i){return '<div class="ln"><span>'+(i+1)+'. '+fmt(b.cap)+' грн'+(b.won?' ★':'')+'</span><span class="n">'+b.day+' дн. · '+fmt(b.sold)+' прод.</span></div>';}).join(''):'<div class="ln"><span>Завершених ігор ще немає. Результат потрапляє сюди, коли починаєш нову гру.</span></div>')+'<div class="ln total"><span>Поточна гра</span><span class="n">'+fmt(capital(s))+' грн · '+s.day+' дн.</span></div></div></section>';
+  h+=vProfile();
   h+='<section><h2>Збереження</h2><p class="hint" style="margin-top:0">'+(ui.sync?ui.sync+'. ':'')+(cloud.ref?'Прогрес прив’язаний до твого акаунта Claude і підтягнеться на іншому пристрої.':'Прогрес зберігається лише в цьому браузері.')+'</p></section>';
   h+='<section><h2>Підсумок гри</h2><div class="ctl"><button class="btn sm" data-a="rep">Скласти підсумок</button>'+(ui.rep?'<button class="btn sm ghost" data-a="repcopy">Скопіювати</button>':'')+'</div>'+(ui.rep?'<textarea class="ttl" rows="9" readonly style="margin-top:10px" aria-label="Підсумок">'+esc(ui.rep)+'</textarea>':'')+'</section>';
   h+='<section><h2>Звук</h2><div class="ctl"><button class="chip'+(!s.mute?' on':'')+'" data-a="mute" aria-pressed="'+(!s.mute)+'">'+(s.mute?'Звук вимкнено':'Звук увімкнено')+'</button></div></section>';
@@ -1703,6 +1841,7 @@ function vOver(){
 }
 
 function render(){
+  if(S.lvlPop&&!document.getElementById('mg'))showLvlPop();
   var main=ui.tab==='modes'?vModes():S.over?vOver():S.end?vEnd():ui.tab==='home'?vHome():ui.tab==='buy'?vBuy():ui.tab==='stock'?vStock():ui.tab==='grow'?vGrow():vLog();
   $('#app').innerHTML='<div class="wrap">'+vHeader(lvl(S))+'<main>'+main+'</main></div>'+(ui.toast?'<div class="toast" role="status">'+ui.toast+'</div>':'');
 }
@@ -1712,6 +1851,13 @@ function act(a,v,id){
   switch(a){
     case 'tab':ui.tab=v;ui.confirm=false;if(window.scrollTo)window.scrollTo(0,0);break;
     case 'next':run(1);break;
+    case 'pfgo':pfSwitch(v);break;
+    case 'pfnew':var pi=document.getElementById('pfn');pfCreate(pi?pi.value:'');break;
+    case 'pfask':ui.pfAsk=v;break;
+    case 'pfdel':pfDelete(v);ui.pfAsk='';break;
+    case 'reb':ui.rebAsk=true;break;
+    case 'rebno':ui.rebAsk=false;break;
+    case 'rebgo':doRebirth();break;
     case 'guide':guideOpen(0);break;
     case 'guidego':if(+v<0){guideDone();mgClose();}else guideOpen(+v);break;
     case 'week':run(7);break;
@@ -1719,6 +1865,7 @@ function act(a,v,id){
     case 'sup':ui.sup=v;ui.qty={};break;
     case 'qm':setQty(id,(ui.qty[id]||sup.moq)-supStep(sup));break;
     case 'qp':setQty(id,(ui.qty[id]||sup.moq)+supStep(sup));break;
+    case 'qmax':{var pm=P(id),um=unitCost(S,pm,sup),nm=Math.floor(S.cash/um),room=whCap(S)-stockTotal(S)-transitQ(S);nm=Math.min(nm,room);if(nm<sup.moq){toast(room<sup.moq?'На складі немає місця':'Не вистачає грошей на мінімум '+sup.moq+' шт.');}else setQty(id,nm);break;}
     case 'qx':setQty(id,(ui.qty[id]||sup.moq)*2);break;
     case 'order':order(id);break;
     case 'tog':toggle(id);break;
@@ -1802,7 +1949,7 @@ document.addEventListener('touchstart',function(e){var c=e.target.closest&&e.tar
 document.addEventListener('touchend',function(e){if(!tch)return;var dx=e.changedTouches[0].clientX-tch.x;if(Math.abs(dx)>40)slide(tch.id+':'+(dx<0?'n':'p'));tch=null;},{passive:true});
 render();
 if(window.requestAnimationFrame)setInterval(clkTick,200);
-try{if(!localStorage.getItem('cargo-guide'))setTimeout(function(){guideOpen(0);},400);}catch(e){}
+try{if(!PF)setTimeout(profileOpen,300);else if(!localStorage.getItem('cargo-guide'))setTimeout(function(){guideOpen(0);},400);}catch(e){}
 initCloud();
 })();
 </script>
