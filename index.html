@@ -582,6 +582,7 @@ function loadBoard(){try{var b=JSON.parse(localStorage.getItem(BKEY));if(Array.i
 function save(){
   try{localStorage.setItem(KEY,JSON.stringify(S));localStorage.setItem(BKEY,JSON.stringify(BOARD));}catch(e){}
   if(cloud.ref){clearTimeout(cloud.timer);cloud.timer=setTimeout(pushCloud,1500);}
+  acSchedule();
 }
 function pushCloud(){
   if(!cloud.ref)return;
@@ -1411,8 +1412,120 @@ function pfDelete(id){
   try{localStorage.removeItem('cargo-tycoon-v2'+suf);localStorage.removeItem('cargo-tycoon-board'+suf);localStorage.removeItem('cargo-tycoon-meta'+suf);}catch(e){}
   PF.list=PF.list.filter(function(p){return p.id!==id;});pfSave();
 }
+var FB={apiKey:'AIzaSyDE4RYC-x7q-Omm8ELRlNdDDNxg6G7PCgA',projectId:'cargo-tycoon-545bc'};
+function FBOK(){return !!(FB.apiKey&&FB.projectId);}
+var AC=(function(){try{var a=JSON.parse(localStorage.getItem('cargo-acct'));return a&&a.uid&&a.refresh?a:null;}catch(e){return null;}})();
+var TOK={id:'',exp:0},acTimer=null,acBusy=false;
+function acActive(){return !!(AC&&PF&&PF.cur===AC.pid);}
+function acStore(){try{if(AC)localStorage.setItem('cargo-acct',JSON.stringify(AC));else localStorage.removeItem('cargo-acct');}catch(e){}}
+function acEmail(n){var h='';n.toLowerCase().split('').forEach(function(c){h+=('0000'+c.charCodeAt(0).toString(16)).slice(-4);});return 'n'+h+'@cargo-tycoon.app';}
+function acNickOK(n){return /^[A-Za-z0-9_.\-\u0400-\u04FF]{3,15}$/.test(n);}
+function acErr(e){
+  var m=String(e&&e.message||e);
+  if(m.indexOf('EMAIL_EXISTS')>=0)return 'Цей нік уже зайнятий. Обери інший.';
+  if(m.indexOf('INVALID_LOGIN')>=0||m.indexOf('EMAIL_NOT_FOUND')>=0||m.indexOf('INVALID_PASSWORD')>=0)return 'Неправильний нік або пароль.';
+  if(m.indexOf('WEAK_PASSWORD')>=0)return 'Пароль занадто простий. Потрібно мінімум 6 символів.';
+  if(m.indexOf('TOO_MANY')>=0)return 'Забагато спроб. Спробуй трохи пізніше.';
+  if(m.indexOf('OPERATION_NOT_ALLOWED')>=0||m.indexOf('CONFIGURATION')>=0)return 'Сервер не налаштований: увімкни Email/Password у Firebase.';
+  return 'Немає зв’язку з сервером. Спробуй ще раз.';
+}
+function acJson(r){return r.json().then(function(j){if(!r.ok)throw new Error((j&&j.error&&j.error.message)||'ERR');return j;});}
+function acSign(mode,nick,pass){
+  var url='https://identitytoolkit.googleapis.com/v1/accounts:'+(mode==='reg'?'signUp':'signInWithPassword')+'?key='+encodeURIComponent(FB.apiKey);
+  return fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:acEmail(nick),password:pass,returnSecureToken:true})}).then(acJson);
+}
+function acToken(){
+  if(TOK.id&&Date.now()<TOK.exp)return Promise.resolve(TOK.id);
+  if(!AC)return Promise.reject(new Error('NOAUTH'));
+  return fetch('https://securetoken.googleapis.com/v1/token?key='+encodeURIComponent(FB.apiKey),{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'grant_type=refresh_token&refresh_token='+encodeURIComponent(AC.refresh)}).then(acJson).then(function(j){
+    TOK={id:j.id_token,exp:Date.now()+(Math.max(60,(+j.expires_in||3600)-120))*1000};
+    if(j.refresh_token&&j.refresh_token!==AC.refresh){AC.refresh=j.refresh_token;acStore();}
+    return TOK.id;
+  });
+}
+function acDocUrl(uid){return 'https://firestore.googleapis.com/v1/projects/'+encodeURIComponent(FB.projectId)+'/databases/(default)/documents/saves/'+encodeURIComponent(uid);}
+function acGet(tok,uid){
+  return fetch(acDocUrl(uid),{headers:{Authorization:'Bearer '+tok}}).then(function(r){
+    if(r.status===404)return null;
+    return acJson(r).then(function(j){var fl=j.fields||{};return fl.data?{data:fl.data.stringValue,nick:fl.nick&&fl.nick.stringValue,t:+(fl.t&&fl.t.integerValue)||0}:null;});
+  });
+}
+function acPutDoc(dataStr){
+  var t=Date.now(),uid=AC.uid,nick=AC.nick;
+  return acToken().then(function(tok){
+    return fetch(acDocUrl(uid),{method:'PATCH',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify({fields:{nick:{stringValue:nick},data:{stringValue:dataStr},t:{integerValue:String(t)}}})}).then(acJson);
+  }).then(function(){try{localStorage.setItem('cargo-sync:'+uid,String(t));}catch(e){}ui.acMsg='Збережено в акаунті о '+new Date(t).toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'});});
+}
+function acPush(){
+  if(!acActive()||!FBOK()||acBusy)return;
+  acBusy=true;
+  var p;try{p=acPutDoc(JSON.stringify({s:S,b:BOARD,m:META}));}catch(e){acBusy=false;return;}
+  p.then(function(){acBusy=false;},function(){acBusy=false;ui.acMsg='Не вдалося зберегти в акаунті. Спробую ще раз пізніше.';});
+}
+function acSchedule(){if(!acActive()||!FBOK()||acTimer)return;acTimer=setTimeout(function(){acTimer=null;acPush();},12000);}
+function acWriteKeys(pid,o){
+  var suf=':'+pid;
+  try{localStorage.setItem('cargo-tycoon-v2'+suf,JSON.stringify(o.s));localStorage.setItem('cargo-tycoon-board'+suf,JSON.stringify(o.b||[]));if(o.m)localStorage.setItem('cargo-tycoon-meta'+suf,JSON.stringify(o.m));}catch(e){}
+}
+function acStart(){
+  acToken().then(function(tok){return acGet(tok,AC.uid);}).then(function(doc){
+    if(!doc)return;
+    var last=+localStorage.getItem('cargo-sync:'+AC.uid)||0;
+    if(doc.t>last){var o=JSON.parse(doc.data);if(o&&o.s&&o.s.v===2){acWriteKeys(AC.pid,o);localStorage.setItem('cargo-sync:'+AC.uid,String(doc.t));location.reload();}}
+  }).catch(function(){});
+}
+function acLogin(res,nick,mode){
+  var pid='a'+res.localId.slice(0,12),suf=':'+pid;
+  AC={nick:nick,uid:res.localId,refresh:res.refreshToken,pid:pid};acStore();
+  TOK={id:res.idToken,exp:Date.now()+3300000};
+  if(!PF)PF={cur:pid,list:[]};
+  if(!PF.list.some(function(p){return p.id===pid;}))PF.list.push({id:pid,name:nick,acct:1});
+  if(mode==='reg'){
+    try{localStorage.setItem('cargo-tycoon-v2'+suf,JSON.stringify(S));localStorage.setItem('cargo-tycoon-board'+suf,JSON.stringify(BOARD));localStorage.setItem('cargo-tycoon-meta'+suf,JSON.stringify(META));}catch(e){}
+    PF.cur=pid;pfSave();
+    return acPutDoc(JSON.stringify({s:S,b:BOARD,m:META}));
+  }
+  return acGet(res.idToken,res.localId).then(function(doc){
+    if(doc&&doc.nick){AC.nick=doc.nick;acStore();PF.list.forEach(function(p){if(p.id===pid)p.name=doc.nick;});}
+    if(doc){var o=JSON.parse(doc.data);if(o&&o.s&&o.s.v===2){acWriteKeys(pid,o);try{localStorage.setItem('cargo-sync:'+res.localId,String(doc.t));}catch(e){}}}
+    PF.cur=pid;pfSave();
+  });
+}
+function acLogout(){
+  var pid=AC&&AC.pid;
+  AC=null;acStore();TOK={id:'',exp:0};
+  if(PF){PF.list=PF.list.filter(function(p){return p.id!==pid;});PF.cur=PF.list.length?PF.list[0].id:'';if(!PF.cur)PF=null;}
+  try{if(PF)pfSave();else localStorage.removeItem('cargo-profiles');}catch(e){}
+  try{location.reload();}catch(e){}
+}
+function authOpen(mode,msg){
+  mode=mode==='reg'?'reg':'login';
+  mgOpen('<h2>'+(mode==='reg'?'Створи акаунт':'Вхід у гру')+'</h2><div class="seg" style="margin-bottom:10px"><button class="chip'+(mode==='login'?' on':'')+'" id="atl">Вхід</button><button class="chip'+(mode==='reg'?' on':'')+'" id="atr">Реєстрація</button></div>'+
+    '<p class="hint" style="margin-top:0">'+(mode==='reg'?'Придумай унікальний нік (3–15 символів: літери, цифри, _ . -) і пароль від 6 символів. Нік не можна повторити.':'Введи свій нік і пароль, щоб продовжити гру з будь-якого пристрою.')+'</p>'+
+    '<label class="fld"><span>Нік</span><input class="ttl" id="anick" type="text" maxlength="15" autocomplete="username" autocapitalize="off" spellcheck="false"></label>'+
+    '<label class="fld"><span>Пароль</span><input class="ttl" id="apass" type="password" autocomplete="'+(mode==='reg'?'new-password':'current-password')+'"></label>'+
+    '<p class="hint" id="amsg" style="color:var(--bad,#b3261e);min-height:1.2em">'+(msg||'')+'</p>'+
+    '<div class="ctl"><button class="btn" id="aok">'+(mode==='reg'?'Створити акаунт':'Увійти')+'</button>'+(PF?'<button class="btn ghost" id="axx">Закрити</button>':'<button class="btn ghost" id="aguest">Грати без акаунта</button>')+'</div>');
+  function $i(id){return document.getElementById(id);}
+  var a=$i('atl'),b=$i('atr'),ok=$i('aok'),g=$i('aguest'),x=$i('axx');
+  if(a)a.addEventListener('click',function(){authOpen('login');});
+  if(b)b.addEventListener('click',function(){authOpen('reg');});
+  if(x)x.addEventListener('click',function(){mgClose();render();});
+  if(g)g.addEventListener('click',function(){pfCreate('Гість',true);mgClose();render();try{if(!localStorage.getItem('cargo-guide'))setTimeout(function(){guideOpen(0);},300);}catch(e){}});
+  function submit(){
+    var n=($i('anick')||{}).value||'',p=($i('apass')||{}).value||'',m=$i('amsg');
+    n=n.trim();
+    function say(t){if(m)m.textContent=t;}
+    if(!acNickOK(n)){say('Нік: 3–15 символів, літери, цифри або _ . -');return;}
+    if(p.length<6){say('Пароль: мінімум 6 символів.');return;}
+    if(ok){ok.disabled=true;}say('Зачекай…');
+    acSign(mode,n,p).then(function(res){return acLogin(res,n,mode);}).then(function(){location.reload();},function(e){if(ok)ok.disabled=false;say(acErr(e));});
+  }
+  if(ok)ok.addEventListener('click',submit);
+  var pe=$i('apass');if(pe)pe.addEventListener('keydown',function(e){if(e.key==='Enter')submit();});
+}
 function profileOpen(){
-  mgOpen('<h2>Створи свій профіль</h2><p>Введи ім’я, і твій прогрес зберігатиметься під ним на цьому пристрої. Інші люди зможуть створити свої профілі й грати окремо.</p><label class="fld"><span>Ім’я гравця</span><input class="ttl" id="pfn" type="text" maxlength="20" placeholder="Наприклад, Макс" autocomplete="off"></label><div class="ctl"><button class="btn" id="pfok">Створити профіль</button></div>');
+  mgOpen('<h2>Створи свій профіль</h2><p>Введи нік, і твій прогрес зберігатиметься під ним на цьому пристрої. Інші люди зможуть створити свої профілі й грати окремо.</p><label class="fld"><span>Нік</span><input class="ttl" id="pfn" type="text" maxlength="20" placeholder="Наприклад, Max_UA" autocomplete="off"></label><div class="ctl"><button class="btn" id="pfok">Створити профіль</button></div>');
   var ok=document.getElementById('pfok');
   function go(){var i=document.getElementById('pfn');pfCreate(i?i.value:'',true);mgClose();render();try{if(!localStorage.getItem('cargo-guide'))setTimeout(function(){guideOpen(0);},300);}catch(e){}}
   if(ok)ok.addEventListener('click',go);
@@ -1420,9 +1533,10 @@ function profileOpen(){
 }
 function vProfile(){
   if(!PF)return '';
-  return '<section><h2>Профіль</h2><div class="card"><p class="hint" style="margin-top:0">Зараз грає: <b>'+esc(pfName())+'</b>. Прогрес кожного профілю зберігається окремо на цьому пристрої.</p>'+
+  var acc=FBOK()?(AC?'<div class="card" style="margin-bottom:10px"><div class="ln"><span>Акаунт: <b>'+esc(AC.nick)+'</b></span><button class="btn sm ghost" data-a="aclogout">Вийти</button></div><p class="hint" style="margin:6px 0 0">'+(acActive()?(ui.acMsg||'Прогрес зберігається в акаунті й підтягнеться на будь-якому пристрої після входу.'):'Зараз активний інший профіль, акаунт не синхронізується.')+'</p></div>':'<div class="card" style="margin-bottom:10px"><p class="hint" style="margin:0 0 8px">Створи акаунт із ніком і паролем, щоб заходити з будь-якого пристрою.</p><button class="btn sm" data-a="acopen">Увійти або створити акаунт</button></div>'):'';
+  return '<section><h2>Профіль</h2>'+acc+'<div class="card"><p class="hint" style="margin-top:0">Зараз грає: <b>'+esc(pfName())+'</b>. Прогрес кожного профілю зберігається окремо на цьому пристрої.</p>'+
    PF.list.map(function(p){var cur=p.id===PF.cur;return '<div class="ln"><span>'+(cur?'✓ ':'')+esc(p.name)+'</span><span>'+(cur?'<span class="sub">зараз</span>':'<button class="btn sm ghost" data-a="pfgo" data-v="'+p.id+'">Грати</button> '+(ui.pfAsk===p.id?'<button class="btn sm" data-a="pfdel" data-v="'+p.id+'">Точно видалити</button>':'<button class="btn sm ghost" data-a="pfask" data-v="'+p.id+'">Видалити</button>'))+'</span></div>';}).join('')+
-   '<div class="ctl" style="margin-top:12px"><label class="fld" style="flex:1"><span>Новий профіль</span><input class="ttl" id="pfn" type="text" maxlength="20" placeholder="Ім’я" autocomplete="off"></label><button class="btn sm" data-a="pfnew">Створити й перейти</button></div>'+
+   '<div class="ctl" style="margin-top:12px"><label class="fld" style="flex:1"><span>Новий профіль</span><input class="ttl" id="pfn" type="text" maxlength="20" placeholder="Нік" autocomplete="off"></label><button class="btn sm" data-a="pfnew">Створити й перейти</button></div>'+
    '<p class="hint">Щоб перенести профіль на інший пристрій, скопіюй код збереження нижче й встав його там.</p></div></section>';
 }
 function guideDone(){try{localStorage.setItem('cargo-guide','1');}catch(e){}}
@@ -1851,6 +1965,8 @@ function act(a,v,id){
   switch(a){
     case 'tab':ui.tab=v;ui.confirm=false;if(window.scrollTo)window.scrollTo(0,0);break;
     case 'next':run(1);break;
+    case 'acopen':authOpen('login');break;
+    case 'aclogout':acLogout();break;
     case 'pfgo':pfSwitch(v);break;
     case 'pfnew':var pi=document.getElementById('pfn');pfCreate(pi?pi.value:'');break;
     case 'pfask':ui.pfAsk=v;break;
@@ -1949,7 +2065,12 @@ document.addEventListener('touchstart',function(e){var c=e.target.closest&&e.tar
 document.addEventListener('touchend',function(e){if(!tch)return;var dx=e.changedTouches[0].clientX-tch.x;if(Math.abs(dx)>40)slide(tch.id+':'+(dx<0?'n':'p'));tch=null;},{passive:true});
 render();
 if(window.requestAnimationFrame)setInterval(clkTick,200);
-try{if(!PF)setTimeout(profileOpen,300);else if(!localStorage.getItem('cargo-guide'))setTimeout(function(){guideOpen(0);},400);}catch(e){}
+try{
+  if(FBOK()&&acActive())acStart();
+  try{document.addEventListener('visibilitychange',function(){if(document.hidden)acPush();});}catch(e){}
+  if(!PF)setTimeout(FBOK()?function(){authOpen('login');}:profileOpen,300);
+  else if(!localStorage.getItem('cargo-guide'))setTimeout(function(){guideOpen(0);},400);
+}catch(e){}
 initCloud();
 })();
 </script>
