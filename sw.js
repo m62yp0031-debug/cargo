@@ -1,5 +1,5 @@
 // Кеш для роботи без інтернету. Змінюй номер версії, коли оновлюєш файли гри.
-var VERSION = 'cargo-tycoon-v14';
+var VERSION = 'cargo-tycoon-v16';
 var FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', function (e) {

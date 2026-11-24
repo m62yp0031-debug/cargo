@@ -218,9 +218,6 @@ ol.steps{margin:8px 0 0;padding-left:20px;display:flex;flex-direction:column;gap
 .over h1{font:700 20px/1.2 var(--display);margin:0 0 10px}
 html,body{touch-action:manipulation}button,a,input,select,label,.chip,.tab{touch-action:manipulation;-webkit-tap-highlight-color:transparent}@media (pointer:coarse){input,select,textarea{font-size:16px}}
 </style>
-<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{-webkit-text-size-adjust:100%}</style>
-</head>
-<body>
 <div class="bg" aria-hidden="true"><i></i><i></i><i></i><b style="left:6%;animation-duration:34s;animation-delay:-3s"><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg></b><b style="left:24%;animation-duration:42s;animation-delay:-17s"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg></b><b style="left:46%;animation-duration:38s;animation-delay:-9s"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg></b><b style="left:66%;animation-duration:46s;animation-delay:-25s"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg></b><b style="left:84%;animation-duration:36s;animation-delay:-14s"><svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg></b></div>
 <div id="fx" aria-hidden="true"></div>
 <div id="app"></div>
@@ -276,7 +273,7 @@ var LEVELS=[[0,'Новачок'],[30,'Перепродавець'],[100,'Рес�
 var LEVELS_F=[[0,'Новачок'],[75,'Підробіток'],[250,'Перепродавець'],[600,'Реселер'],[1200,'Оптовик'],[2500,'Опт-партнер'],[5000,'Карго-бос'],[9000,'Імпортер'],[15000,'Магнат'],[25000,'Тайкун']];
 var FREE_DEM=0.6,FREE_UP=2;
 var LVL_P={earbuds:0,wmouse:0,cable:0,pad:1,mouse:1,led:1,stand:2,hub:2,case:2,tws:2,kb:3,gmouse:3,webcam:4,mic:4,headset:5,mkb:6,kbpro:7,dock:8};
-var LVL_S={taobao:0,pdd:1,a1688:3,alibaba:5,oem:7},LVL_U={olx:0,photo:0,prom:2,agent:3,site:4},LVL_T={assistant:2,packer:3,manager:5};
+var LVL_S={taobao:0,pdd:1,a1688:3,alibaba:5,oem:7},LVL_U={olx:0,photo:0,prom:2,agent:3,site:4},LVL_T={assistant:2,packer:3,manager:5,buyer:4};
 var MG_LV={spin:2,haggle:4,pack:6},MG_NAME={spin:'Міні-гра «Колесо удачі»',haggle:'Міні-гра «Торг у Китаї»',pack:'Міні-гра «Аврал на складі»'};
 PRODUCTS.forEach(function(p){p.lv=LVL_P[p.id]||0;});
 function isFree(s){return !s.mode||s.mode==='free';}
@@ -304,6 +301,24 @@ function levelUp(a,b){
   for(i=a+1;i<=b;i++)o=o.concat(openedAt(i));
   log('Рівень '+(b+1)+': '+T[b][1]+'. Відкрито: '+(o.join(', ')||'нічого нового')+'. Бонус: '+fmt(bonus)+' грн.');
   S.lvlPop={i:b,bonus:bonus,o:o};
+}
+function todayStr(d){d=d||new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
+function bonusInfo(){
+  var l=S.login||{last:'',streak:0},y=new Date();y.setDate(y.getDate()-1);
+  var st=(l.last===todayStr(y))?(l.streak%7)+1:1;
+  var amt=Math.round(300*(1+0.4*lvl(S).i)*(1+0.2*(st-1))/10)*10;
+  if(st===7)amt*=3;
+  return {st:st,amt:amt};
+}
+function bonusDue(){return isFree(S)&&S.day>=1&&!S.over&&!S.end&&S.login&&S.login.last!==todayStr();}
+function showBonusPop(){
+  var b=bonusInfo(),dots='';
+  for(var i=1;i<=7;i++)dots+='<span class="chip'+(i<=b.st?' on':'')+'" style="margin:2px">'+i+'</span>';
+  mgOpen('<h2>Щоденний бонус</h2><p>День '+b.st+' із 7 поспіль: <b>+'+fmt(b.amt)+' грн</b>.</p><div>'+dots+'</div><p class="hint">На 7-й день бонус потроєний. Пропустиш день — серія почнеться заново.</p><div class="ctl"><button class="btn" id="bnok">Забрати</button></div>');
+  var ok=document.getElementById('bnok');
+  if(ok)ok.addEventListener('click',function(){
+    var b2=bonusInfo();S.cash+=b2.amt;S.login={last:todayStr(),streak:b2.st};log('Щоденний бонус: +'+fmt(b2.amt)+' грн (день '+b2.st+').');sfx('ach');mgClose();checkAch();save();render();
+  });
 }
 function showLvlPop(){
   var p=S.lvlPop;if(!p)return;S.lvlPop=null;
@@ -356,8 +371,12 @@ var SHIP=[18,15,12.5];
 var STAFF={
  assistant:{name:'Помічник',unlock:50,pay:120,desc:'Відповідає покупцям: трафік +12%.'},
  packer:{name:'Пакувальник',unlock:120,pay:90,desc:'Пакує акуратно: повернення коштують 25 грн замість 60, рейтинг падає вдвічі менше.'},
- manager:{name:'Менеджер',unlock:300,pay:200,desc:'Веде оголошення: +2 слоти й трафік +10%.'}
+ manager:{name:'Менеджер',unlock:300,pay:200,desc:'Веде оголошення: +2 слоти й трафік +10%.'},
+ buyer:{name:'Закупник',unlock:600,pay:150,desc:'Домовляється з постачальниками: закупівля дешевша на 3%.'}
 };
+function stLv(s,k){return (s.staffLv&&s.staffLv[k])||0;}
+function stPay(s,k){return Math.round(STAFF[k].pay*(1+0.4*stLv(s,k)));}
+function stUpCost(s,k){return 2500*(stLv(s,k)+1);}
 var LOSS={taobao:0.01,pdd:0.04,a1688:0.03,alibaba:0.01,oem:0.02};
 var KW=['бездротов','ігров','механічн','гаранті','україн','xxl','usb','type-c','rgb','bluetooth','ергоном','для ноутбук','для пк'];
 var WHO=['Магазин «Ґейм-Зона»','Комп’ютерний клуб','Офіс на Подолі','Школа програмування','Інтернет-кафе','Стрімер із Харкова'];
@@ -406,6 +425,8 @@ var ACH=[
  {id:'a19',name:'Майстер торгу: 3 вдалі торги',test:function(s){return s.cnt.haggle>=3;}},
  {id:'a20',name:'Швидкі руки: 15 посилок за раз',test:function(s){return s.cnt.packBest>=15;}},
  {id:'a21',name:'Щасливчик: крутив колесо',test:function(s){return s.cnt.spin>=1;}},
+ {id:'a23',name:'Вірний гравець: 7 днів поспіль',test:function(s){return s.login&&s.login.streak>=7;}},
+ {id:'a24',name:'Найняв закупника',test:function(s){return !!s.staff.buyer;}},
  {id:'a22',name:'Свої рішення: 5 історій',test:function(s){return s.cnt.story>=5;}},
  {id:'a23',name:'Дві різні кінцівки кампанії',test:function(){return Object.keys(META.endings).length>=2;}},
  {id:'a24',name:'Власне виробництво: перша збірка',test:function(s){return !!(s.pstat.ckb||s.pstat.cpad||(s.inv.ckb&&s.inv.ckb.qty>0)||(s.inv.cpad&&s.inv.cpad.qty>0));}}
@@ -469,6 +490,9 @@ function fix(s){
   if(!s.wh)s.wh=0;
   if(!s.reviews)s.reviews=[];
   if(!s.hist)s.hist=[];
+  if(!s.staffLv)s.staffLv={};
+  if(!s.snap)s.snap=[];
+  if(!s.login)s.login={last:'',streak:0};
   if(!s.pstat)s.pstat={};
   if(!s.investor)s.investor={on:false,paid:0};
   if(s.mute===undefined)s.mute=false;
@@ -626,7 +650,8 @@ function ship(s){return Math.round(SHIP[s.up.agent]*shipMult(s)*100)/100;}
 function imp(s){return s.vat?1.2:1;}
 function dealM(s,p){return s.deal&&s.deal.id===p.id?1-s.deal.pct:1;}
 function landed(s,p,sup){return (p.usd*sup.mult*dealM(s,p)+p.kg*ship(s))*s.rate*imp(s);}
-function mktM(s,id){return (s.mode==='free'||s.mode==='season')&&typeof MKT==='object'&&MKT[id]||1;}
+var MKT={};
+function mktM(s,id){return (isFree(s)||s.mode==='season')&&MKT[id]||1;}
 function mkt(s,id){var p=P(id);return Math.round(mktM(s,id)*p.ua*(1+0.08*s.brand.lvl)*s.trend[id]*(s.comp[id]?s.comp[id].m:1)*Math.pow(s.rate/45,0.6)/5)*5;}
 function unlocked(s,p){
   if(p.blank||p.own)return false;
@@ -636,7 +661,7 @@ function unlocked(s,p){
   return s.sold>=Math.round(p.unlock*f);
 }
 function slots(s){return (hasPerk(s,'p_slot')?1:0)+mm('slot')+3+s.up.olx+s.up.prom+s.up.site+(s.staff.manager?2:0);}
-function unitCost(s,p,sup){return landed(s,p,sup)*(s.insured?1.06:1);}
+function unitCost(s,p,sup){return landed(s,p,sup)*(s.insured?1.06:1)*(s.staff.buyer?1-0.03*(1+stLv(s,'buyer')):1);}
 function titleScore(t){
   if(!t)return 0;
   var sc=0,l=t.length,low=t.toLowerCase(),i,hit=0;
@@ -648,20 +673,43 @@ function titleScore(t){
   if(l>8&&t===t.toUpperCase())sc-=0.1;
   return clamp(sc,-0.1,0.3);
 }
-var AC=null;
+var ACTX=null;
 function beep(freqs,dur){
   if(S.mute)return;
   try{
-    AC=AC||new (window.AudioContext||window.webkitAudioContext)();
-    if(AC.state==='suspended')AC.resume();
-    var t=AC.currentTime;
+    ACTX=ACTX||new (window.AudioContext||window.webkitAudioContext)();
+    if(ACTX.state==='suspended')ACTX.resume();
+    var t=ACTX.currentTime;
     freqs.forEach(function(fr,i){
-      var o=AC.createOscillator(),g=AC.createGain(),st=t+i*0.09;
-      o.type='triangle';o.frequency.value=fr;o.connect(g);g.connect(AC.destination);
+      var o=ACTX.createOscillator(),g=ACTX.createGain(),st=t+i*0.09;
+      o.type='triangle';o.frequency.value=fr;o.connect(g);g.connect(ACTX.destination);
       g.gain.setValueAtTime(0.0001,st);g.gain.exponentialRampToValueAtTime(0.12,st+0.02);g.gain.exponentialRampToValueAtTime(0.0001,st+dur);
       o.start(st);o.stop(st+dur+0.05);
     });
   }catch(e){}
+}
+var MUS={timer:null,i:0};
+function musicOn(){try{return localStorage.getItem('cargo-music')==='1';}catch(e){return false;}}
+function musicNote(){
+  if(S.mute||document.hidden||!ACTX)return;
+  try{
+    var sc=[220,261.6,293.7,329.6,392,440],bass=[110,87.3,98,82.4],t=ACTX.currentTime;
+    function tone(f,vol,dur,type){var o=ACTX.createOscillator(),g=ACTX.createGain();o.type=type;o.frequency.value=f;o.connect(g);g.connect(ACTX.destination);g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(vol,t+0.25);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);o.start(t);o.stop(t+dur+0.05);}
+    MUS.i++;
+    if(MUS.i%4===1)tone(bass[Math.floor(MUS.i/4)%4],0.05,3.4,'sine');
+    if(Math.random()<0.8)tone(sc[Math.floor(Math.random()*sc.length)]*(Math.random()<0.25?2:1),0.035,1.8,'triangle');
+  }catch(e){}
+}
+function musicStart(){
+  if(MUS.timer)return;
+  try{ACTX=ACTX||new (window.AudioContext||window.webkitAudioContext)();if(ACTX.state==='suspended')ACTX.resume();}catch(e){return;}
+  MUS.timer=setInterval(musicNote,1500);musicNote();
+}
+function musicStop(){if(MUS.timer){clearInterval(MUS.timer);MUS.timer=null;}}
+function musicToggle(){
+  var on=!musicOn();
+  try{localStorage.setItem('cargo-music',on?'1':'0');}catch(e){}
+  if(on)musicStart();else musicStop();
 }
 function sfx(k){beep(SFX[k],k==='level'?0.3:0.18);}
 function confetti(){
@@ -699,7 +747,9 @@ function dailyCheck(s,r,net){
     newDaily(s);
   }
 }
-function checkAch(){ACH.forEach(function(a){if(S.ach[a.id]===undefined&&a.test(S)){S.ach[a.id]=S.day;log('Досягнення: '+a.name+'.');toast('Досягнення: '+a.name);sfx('ach');confetti();}});}
+var ACH_RW={a2:800,a3:2500,a4:1000,a9:1500,a10:25000,a11:1000,a15:1500,a19:1000,a20:1000};
+function achRw(a){return ACH_RW[a.id]||500;}
+function checkAch(){ACH.forEach(function(a){if(S.ach[a.id]===undefined&&a.test(S)){S.ach[a.id]=S.day;var rw=isFree(S)?achRw(a):0;if(rw)S.cash+=rw;log('Досягнення: '+a.name+'.'+(rw?' Нагорода '+fmt(rw)+' грн.':''));toast('Досягнення: '+a.name+(rw?' · +'+fmt(rw)+' грн':''));sfx('ach');confetti();}});}
 function pushBoard(){
   if(S.day<1)return;
   BOARD.push({cap:Math.round(capital(S)),sold:S.sold,day:S.day,won:!!S.won});
@@ -712,7 +762,7 @@ function traffic(s){
   var comm=raw>0?(o*OLX_C+pr*PROM_C[s.up.prom])/raw:OLX_C;
   var adM=1+0.8*(1-Math.exp(-s.ad/350));
   var repM=0.7+0.6*s.rep/100;
-  return {T:raw*adM*repM*CONV[s.up.photo]*(1+0.05*s.brand.lvl)*(1+(s.staff.assistant?0.12:0)+(s.staff.manager?0.1:0)),comm:Math.max(0.01,comm-(hasPerk(s,'p_comm')?0.02:0)),adM:adM,repM:repM};
+  return {T:raw*adM*repM*CONV[s.up.photo]*(1+0.05*s.brand.lvl)*(1+(s.staff.assistant?0.12+0.05*stLv(s,'assistant'):0)+(s.staff.manager?0.1+0.04*stLv(s,'manager'):0)),comm:Math.max(0.01,comm-(hasPerk(s,'p_comm')?0.02:0)),adM:adM,repM:repM};
 }
 function season(d){
   var v=(+d.slice(5,7))*100+(+d.slice(8,10)),i,x;
@@ -768,7 +818,7 @@ function stockTotal(s){var n=0;PRODUCTS.forEach(function(p){var it=s.inv[p.id];i
 function events(s){
   if(Math.random()>0.16)return;
   var un=PRODUCTS.filter(function(p){return unlocked(s,p);});
-  var k=Math.floor(Math.random()*12),p=pick(un);
+  var k=Math.floor(Math.random()*19),p=pick(un);
   if(k===0){s.comp[p.id]={m:0.88,d:7};log('Конкурент знизив ціну на «'+p.name+'» на 12%. Ринкова ціна просіла на тиждень.');}
   else if(k===1){s.buzz[p.id]={m:2,d:3};log('Блогер показав «'+p.name+'». Попит удвічі більший на 3 дні.');}
   else if(k===2){
@@ -794,10 +844,33 @@ function events(s){
     if(it10&&it10.qty>0&&!s.staff.packer){var n10=Math.min(it10.qty,3);it10.qty-=n10;log('Розбилось під час пакування: '+n10+' шт. «'+p.name+'». Пакувальник цього б не допустив.');}
   }
   else if(k===11){s.rep=clamp(s.rep+5,0,100);log('Вдячний покупець залишив гарний відгук про твій магазин. Рейтинг зріс.');}
-  else{
+  else if(k===6){
     var st=PRODUCTS.filter(function(q){var it=s.inv[q.id];return it&&it.qty>0;});
     if(st.length){var w=pick(st);s.inv[w.id].qty--;log('Шахрай виманив «'+w.name+'» через фальшиву оплату. Втрачено 1 шт.');}
   }
+  else if(k===12){
+    if(s.cash>8000&&s.sold>30){var fn=Math.min(1500,Math.round(s.cash*0.03));s.cash-=fn;log('Податкова перевірка: дрібний штраф '+fmt(fn)+' грн.');}
+  }
+  else if(k===13){s.buzz[p.id]={m:1.5,d:5};log('Про «'+p.name+'» багато пишуть у чатах. Попит +50% на 5 днів.');}
+  else if(k===14){
+    if(!s.deal){s.deal={id:p.id,pct:0.2,d:3};log('Постачальник дав знижку 20% на «'+p.name+'» на 3 дні.');}
+  }
+  else if(k===15){
+    var it15=s.inv[p.id];
+    if(it15&&it15.qty>0){
+      var n15=Math.min(it15.qty,10),pr15=Math.round(s.price[p.id]*1.05);
+      it15.qty-=n15;s.cash+=n15*pr15;s.profit+=n15*(pr15-it15.cost);
+      log('Великий клієнт купив '+n15+' шт. «'+p.name+'» на 5% дорожче за твою ціну: +'+fmt(n15*pr15)+' грн.');
+    }
+  }
+  else if(k===16){
+    var p2=pick(un);s.buzz[p.id]={m:1.4,d:2};s.buzz[p2.id]={m:1.4,d:2};
+    log('Розпродаж на маркетплейсі привів покупців: попит +40% на «'+p.name+'» і «'+p2.name+'» на 2 дні.');
+  }
+  else if(k===17){
+    if(s.transit.length){var o17=pick(s.transit);o17.eta=Math.max(s.day+1,o17.eta-2);log('Посилка з '+o17.sup+' потрапила на швидкий рейс: приїде на 2 дні раніше.');}
+  }
+  else if(k===18){s.cash+=200;s.rep=clamp(s.rep+3,0,100);log('Маркетплейс виплатив бонус 200 грн за швидку доставку. Рейтинг зріс.');}
 }
 
 function dealTick(s){
@@ -876,7 +949,7 @@ function step(s){
     for(i=0;i<n;i++){if(Math.random()<it.defect*(hasPerk(s,'p_def')?0.5:1))ret++;else ok++;}
     var rev=ok*price*(1-tr.comm);
     it.qty-=n;
-    var RC=s.staff.packer?25:60;
+    var RC=s.staff.packer?Math.max(10,25-5*stLv(s,'packer')):60;
     s.cash+=rev-ret*RC;
     r.profit+=rev-ok*it.cost-ret*(it.cost+RC);
     r.rev+=rev;r.ret+=ret;r.retCost+=ret*RC;r.units+=ok;
@@ -891,7 +964,7 @@ function step(s){
   var ad=Math.min(s.ad,Math.max(0,s.cash));
   s.cash-=ad;r.ad=ad;
   var sal=0;
-  Object.keys(STAFF).forEach(function(k){if(s.staff[k]){var pay=STAFF[k].pay;if(s.cash>=pay){s.cash-=pay;sal+=pay;}else{s.staff[k]=0;log(STAFF[k].name+' пішов: нема чим платити зарплату.');}}});
+  Object.keys(STAFF).forEach(function(k){if(s.staff[k]){var pay=stPay(s,k);if(s.cash>=pay){s.cash-=pay;sal+=pay;}else{s.staff[k]=0;log(STAFF[k].name+' пішов: нема чим платити зарплату.');}}});
   r.salary=sal;
   if(r.ret>0)s.streak=0;else if(r.units>0)s.streak++;
   var rent=Math.min(WH[s.wh][1],Math.max(0,s.cash));s.cash-=rent;
@@ -909,6 +982,7 @@ function step(s){
   s.profit+=dayNet;
   s.hist.push({d:s.day,cap:Math.round(capital(s)),net:Math.round(dayNet)});
   if(s.hist.length>90)s.hist.shift();
+  (function(){var n={};PRODUCTS.forEach(function(p){if(s.pstat[p.id])n[p.id]=s.pstat[p.id].n;});s.snap.push({d:s.day,n:n});if(s.snap.length>8)s.snap.shift();})();
   dailyCheck(s,r,dayNet);
   if(r.units>0||r.ret>0)log('Продано '+r.units+' шт., чистий результат дня '+sg(dayNet)+' грн'+(r.ret?', повернень: '+r.ret:'')+'.');
   if(stockTotal(s)===0&&s.transit.length===0&&s.cash<80){s.over=true;}
@@ -988,7 +1062,13 @@ function staffToggle(k){
   var st=STAFF[k];
   if(S.staff[k]){S.staff[k]=0;log(st.name+' звільнений.');return;}
   if(!stOK(S,k)){toast('Відкриється '+lockTxt(S,'t',k,st.unlock));return;}
-  S.staff[k]=1;log('Найнято: '+st.name+' ('+st.pay+' грн/день).');checkAch();
+  S.staff[k]=1;log('Найнято: '+st.name+' ('+stPay(S,k)+' грн/день).');checkAch();
+}
+function staffUp(k){
+  if(!S.staff[k]||stLv(S,k)>=2)return;
+  var c=stUpCost(S,k);
+  if(S.cash<c){toast('Не вистачає '+fmt(c-S.cash)+' грн');return;}
+  S.cash-=c;S.staffLv[k]=stLv(S,k)+1;log('Навчання: '+STAFF[k].name+' тепер рівня '+(stLv(S,k)+1)+'. Зарплата '+fmt(stPay(S,k))+' грн/день.');sfx('level');
 }
 function makeCode(){try{return btoa(unescape(encodeURIComponent(JSON.stringify({s:S,b:BOARD,m:META}))));}catch(e){return '';}}
 function copyCode(){
@@ -1414,10 +1494,10 @@ function pfDelete(id){
 }
 var FB={apiKey:'AIzaSyDE4RYC-x7q-Omm8ELRlNdDDNxg6G7PCgA',projectId:'cargo-tycoon-545bc'};
 function FBOK(){return !!(FB.apiKey&&FB.projectId);}
-var AC=(function(){try{var a=JSON.parse(localStorage.getItem('cargo-acct'));return a&&a.uid&&a.refresh?a:null;}catch(e){return null;}})();
+var ACC=(function(){try{var a=JSON.parse(localStorage.getItem('cargo-acct'));return a&&a.uid&&a.refresh?a:null;}catch(e){return null;}})();
 var TOK={id:'',exp:0},acTimer=null,acBusy=false;
-function acActive(){return !!(AC&&PF&&PF.cur===AC.pid);}
-function acStore(){try{if(AC)localStorage.setItem('cargo-acct',JSON.stringify(AC));else localStorage.removeItem('cargo-acct');}catch(e){}}
+function acActive(){return !!(ACC&&PF&&PF.cur===ACC.pid);}
+function acStore(){try{if(ACC)localStorage.setItem('cargo-acct',JSON.stringify(ACC));else localStorage.removeItem('cargo-acct');}catch(e){}}
 function acEmail(n){var h='';n.toLowerCase().split('').forEach(function(c){h+=('0000'+c.charCodeAt(0).toString(16)).slice(-4);});return 'n'+h+'@cargo-tycoon.app';}
 function acNickOK(n){return /^[A-Za-z0-9_.\-\u0400-\u04FF]{3,15}$/.test(n);}
 function acErr(e){
@@ -1436,10 +1516,10 @@ function acSign(mode,nick,pass){
 }
 function acToken(){
   if(TOK.id&&Date.now()<TOK.exp)return Promise.resolve(TOK.id);
-  if(!AC)return Promise.reject(new Error('NOAUTH'));
-  return fetch('https://securetoken.googleapis.com/v1/token?key='+encodeURIComponent(FB.apiKey),{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'grant_type=refresh_token&refresh_token='+encodeURIComponent(AC.refresh)}).then(acJson).then(function(j){
+  if(!ACC)return Promise.reject(new Error('NOAUTH'));
+  return fetch('https://securetoken.googleapis.com/v1/token?key='+encodeURIComponent(FB.apiKey),{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'grant_type=refresh_token&refresh_token='+encodeURIComponent(ACC.refresh)}).then(acJson).then(function(j){
     TOK={id:j.id_token,exp:Date.now()+(Math.max(60,(+j.expires_in||3600)-120))*1000};
-    if(j.refresh_token&&j.refresh_token!==AC.refresh){AC.refresh=j.refresh_token;acStore();}
+    if(j.refresh_token&&j.refresh_token!==ACC.refresh){ACC.refresh=j.refresh_token;acStore();}
     return TOK.id;
   });
 }
@@ -1451,7 +1531,7 @@ function acGet(tok,uid){
   });
 }
 function acPutDoc(dataStr){
-  var t=Date.now(),uid=AC.uid,nick=AC.nick;
+  var t=Date.now(),uid=ACC.uid,nick=ACC.nick;
   return acToken().then(function(tok){
     return fetch(acDocUrl(uid),{method:'PATCH',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify({fields:{nick:{stringValue:nick},data:{stringValue:dataStr},t:{integerValue:String(t)}}})}).then(acJson);
   }).then(function(){try{localStorage.setItem('cargo-sync:'+uid,String(t));}catch(e){}ui.acMsg='Збережено в акаунті о '+new Date(t).toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'});});
@@ -1460,7 +1540,63 @@ function acPush(){
   if(!acActive()||!FBOK()||acBusy)return;
   acBusy=true;
   var p;try{p=acPutDoc(JSON.stringify({s:S,b:BOARD,m:META}));}catch(e){acBusy=false;return;}
+  acPushPub();
   p.then(function(){acBusy=false;},function(){acBusy=false;ui.acMsg='Не вдалося зберегти в акаунті. Спробую ще раз пізніше.';});
+}
+function fsBase(){return 'https://firestore.googleapis.com/v1/projects/'+encodeURIComponent(FB.projectId)+'/databases/(default)/documents';}
+function acPushPub(){
+  if(!isFree(S)||S.day<1)return;
+  var t=Date.now(),uid=ACC.uid,sales={};
+  var a=S.snap&&S.snap.length?S.snap[S.snap.length-1]:null,b=null;
+  if(a){for(var i=0;i<S.snap.length;i++){if(S.snap[i].d>=a.d-7){b=S.snap[i];break;}}}
+  if(a&&b)Object.keys(a.n).forEach(function(k){var u=a.n[k]-((b.n&&b.n[k])||0);if(u>0)sales[k]=u;});
+  acToken().then(function(tok){
+    var h={Authorization:'Bearer '+tok,'Content-Type':'application/json'};
+    var p1=fetch(fsBase()+'/board/'+encodeURIComponent(uid),{method:'PATCH',headers:h,body:JSON.stringify({fields:{nick:{stringValue:ACC.nick},cap:{integerValue:String(Math.max(0,Math.round(capital(S))))},day:{integerValue:String(S.day)},sold:{integerValue:String(S.sold)},t:{integerValue:String(t)}}})});
+    var p2=fetch(fsBase()+'/market/'+encodeURIComponent(uid),{method:'PATCH',headers:h,body:JSON.stringify({fields:{sales:{stringValue:JSON.stringify(sales)},t:{integerValue:String(t)}}})});
+    return Promise.all([p1,p2]);
+  }).catch(function(){});
+}
+var lbAt=0;
+function lbLoad(force){
+  if(!acActive()||!FBOK())return;
+  if(!force&&Date.now()-lbAt<60000)return;
+  lbAt=Date.now();ui.lbBusy=true;
+  acToken().then(function(tok){
+    return fetch(fsBase()+':runQuery',{method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify({structuredQuery:{from:[{collectionId:'board'}],orderBy:[{field:{fieldPath:'cap'},direction:'DESCENDING'}],limit:10}})}).then(acJson);
+  }).then(function(arr){
+    ui.lb=(arr||[]).filter(function(x){return x.document;}).map(function(x){var f=x.document.fields||{};return {nick:f.nick&&f.nick.stringValue||'?',cap:+(f.cap&&f.cap.integerValue)||0,day:+(f.day&&f.day.integerValue)||0,me:x.document.name.slice(-ACC.uid.length)===ACC.uid};});
+    ui.lbBusy=false;ui.lbErr='';render();
+  }).catch(function(){ui.lbBusy=false;ui.lbErr='Не вдалося завантажити рейтинг. Перевір інтернет і правила бази.';render();});
+}
+var mkAt=0;
+function mkLoad(){
+  if(!acActive()||!FBOK()||Date.now()-mkAt<600000)return;
+  mkAt=Date.now();
+  acToken().then(function(tok){
+    return fetch(fsBase()+'/market?pageSize=100',{headers:{Authorization:'Bearer '+tok}}).then(acJson);
+  }).then(function(j){
+    var tot={},cut=Date.now()-3*86400000,n=0;
+    (j.documents||[]).forEach(function(d){
+      if(d.name.slice(-ACC.uid.length)===ACC.uid)return;
+      var f=d.fields||{},t=+(f.t&&f.t.integerValue)||0;if(t<cut)return;
+      var sl={};try{sl=JSON.parse(f.sales&&f.sales.stringValue||'{}');}catch(e){}
+      n++;Object.keys(sl).forEach(function(k){if(PRODUCTS.some(function(q){return q.id===k;}))tot[k]=(tot[k]||0)+(+sl[k]||0);});
+    });
+    var m={};Object.keys(tot).forEach(function(k){var v=Math.max(0.8,Math.min(1,1/(1+tot[k]/120)));if(v<0.995)m[k]=v;});
+    MKT=m;ui.mkN=n;
+  }).catch(function(){});
+}
+function mktNote(){
+  var ks=Object.keys(MKT);if(!ks.length||!isFree(S))return '';
+  return '<p class="hint">Інші гравці багато продають: ціни просіли на '+ks.slice(0,3).map(function(k){return P(k).name+' (−'+Math.round((1-MKT[k])*100)+'%)';}).join(', ')+'.</p>';
+}
+function vBoard(){
+  var h='<section><h2>Рейтинг гравців</h2><div class="card">';
+  if(!acActive())return h+'<p class="hint" style="margin:0">Увійди в акаунт, щоб потрапити до топ-10 за капіталом.</p></div></section>';
+  if(ui.lb&&ui.lb.length)h+=ui.lb.map(function(x,i){return '<div class="ln"><span class="'+(x.me?'done':'')+'">'+(i+1)+'. '+esc(x.nick)+(x.me?' (ти)':'')+'</span><span class="n">'+fmt(x.cap)+' грн · '+x.day+' дн.</span></div>';}).join('');
+  else h+='<p class="hint" style="margin:0">'+(ui.lbBusy?'Завантажую…':ui.lbErr||'Поки нікого. Зіграй кілька днів у вільному режимі — і ти з’явишся тут.')+'</p>';
+  return h+'</div><div class="ctl"><button class="btn sm ghost" data-a="lbreload">Оновити</button></div><p class="hint">У рейтинг потрапляє капітал із вільного режиму.</p></section>';
 }
 function acSchedule(){if(!acActive()||!FBOK()||acTimer)return;acTimer=setTimeout(function(){acTimer=null;acPush();},12000);}
 function acWriteKeys(pid,o){
@@ -1468,15 +1604,16 @@ function acWriteKeys(pid,o){
   try{localStorage.setItem('cargo-tycoon-v2'+suf,JSON.stringify(o.s));localStorage.setItem('cargo-tycoon-board'+suf,JSON.stringify(o.b||[]));if(o.m)localStorage.setItem('cargo-tycoon-meta'+suf,JSON.stringify(o.m));}catch(e){}
 }
 function acStart(){
-  acToken().then(function(tok){return acGet(tok,AC.uid);}).then(function(doc){
+  mkLoad();setInterval(mkLoad,620000);
+  acToken().then(function(tok){return acGet(tok,ACC.uid);}).then(function(doc){
     if(!doc)return;
-    var last=+localStorage.getItem('cargo-sync:'+AC.uid)||0;
-    if(doc.t>last){var o=JSON.parse(doc.data);if(o&&o.s&&o.s.v===2){acWriteKeys(AC.pid,o);localStorage.setItem('cargo-sync:'+AC.uid,String(doc.t));location.reload();}}
+    var last=+localStorage.getItem('cargo-sync:'+ACC.uid)||0;
+    if(doc.t>last){var o=JSON.parse(doc.data);if(o&&o.s&&o.s.v===2){acWriteKeys(ACC.pid,o);localStorage.setItem('cargo-sync:'+ACC.uid,String(doc.t));location.reload();}}
   }).catch(function(){});
 }
 function acLogin(res,nick,mode){
   var pid='a'+res.localId.slice(0,12),suf=':'+pid;
-  AC={nick:nick,uid:res.localId,refresh:res.refreshToken,pid:pid};acStore();
+  ACC={nick:nick,uid:res.localId,refresh:res.refreshToken,pid:pid};acStore();
   TOK={id:res.idToken,exp:Date.now()+3300000};
   if(!PF)PF={cur:pid,list:[]};
   if(!PF.list.some(function(p){return p.id===pid;}))PF.list.push({id:pid,name:nick,acct:1});
@@ -1486,14 +1623,14 @@ function acLogin(res,nick,mode){
     return acPutDoc(JSON.stringify({s:S,b:BOARD,m:META}));
   }
   return acGet(res.idToken,res.localId).then(function(doc){
-    if(doc&&doc.nick){AC.nick=doc.nick;acStore();PF.list.forEach(function(p){if(p.id===pid)p.name=doc.nick;});}
+    if(doc&&doc.nick){ACC.nick=doc.nick;acStore();PF.list.forEach(function(p){if(p.id===pid)p.name=doc.nick;});}
     if(doc){var o=JSON.parse(doc.data);if(o&&o.s&&o.s.v===2){acWriteKeys(pid,o);try{localStorage.setItem('cargo-sync:'+res.localId,String(doc.t));}catch(e){}}}
     PF.cur=pid;pfSave();
   });
 }
 function acLogout(){
-  var pid=AC&&AC.pid;
-  AC=null;acStore();TOK={id:'',exp:0};
+  var pid=ACC&&ACC.pid;
+  ACC=null;acStore();TOK={id:'',exp:0};
   if(PF){PF.list=PF.list.filter(function(p){return p.id!==pid;});PF.cur=PF.list.length?PF.list[0].id:'';if(!PF.cur)PF=null;}
   try{if(PF)pfSave();else localStorage.removeItem('cargo-profiles');}catch(e){}
   try{location.reload();}catch(e){}
@@ -1533,7 +1670,7 @@ function profileOpen(){
 }
 function vProfile(){
   if(!PF)return '';
-  var acc=FBOK()?(AC?'<div class="card" style="margin-bottom:10px"><div class="ln"><span>Акаунт: <b>'+esc(AC.nick)+'</b></span><button class="btn sm ghost" data-a="aclogout">Вийти</button></div><p class="hint" style="margin:6px 0 0">'+(acActive()?(ui.acMsg||'Прогрес зберігається в акаунті й підтягнеться на будь-якому пристрої після входу.'):'Зараз активний інший профіль, акаунт не синхронізується.')+'</p></div>':'<div class="card" style="margin-bottom:10px"><p class="hint" style="margin:0 0 8px">Створи акаунт із ніком і паролем, щоб заходити з будь-якого пристрою.</p><button class="btn sm" data-a="acopen">Увійти або створити акаунт</button></div>'):'';
+  var acc=FBOK()?(ACC?'<div class="card" style="margin-bottom:10px"><div class="ln"><span>Акаунт: <b>'+esc(ACC.nick)+'</b></span><button class="btn sm ghost" data-a="aclogout">Вийти</button></div><p class="hint" style="margin:6px 0 0">'+(acActive()?(ui.acMsg||'Прогрес зберігається в акаунті й підтягнеться на будь-якому пристрої після входу.'):'Зараз активний інший профіль, акаунт не синхронізується.')+'</p></div>':'<div class="card" style="margin-bottom:10px"><p class="hint" style="margin:0 0 8px">Створи акаунт із ніком і паролем, щоб заходити з будь-якого пристрою.</p><button class="btn sm" data-a="acopen">Увійти або створити акаунт</button></div>'):'';
   return '<section><h2>Профіль</h2>'+acc+'<div class="card"><p class="hint" style="margin-top:0">Зараз грає: <b>'+esc(pfName())+'</b>. Прогрес кожного профілю зберігається окремо на цьому пристрої.</p>'+
    PF.list.map(function(p){var cur=p.id===PF.cur;return '<div class="ln"><span>'+(cur?'✓ ':'')+esc(p.name)+'</span><span>'+(cur?'<span class="sub">зараз</span>':'<button class="btn sm ghost" data-a="pfgo" data-v="'+p.id+'">Грати</button> '+(ui.pfAsk===p.id?'<button class="btn sm" data-a="pfdel" data-v="'+p.id+'">Точно видалити</button>':'<button class="btn sm ghost" data-a="pfask" data-v="'+p.id+'">Видалити</button>'))+'</span></div>';}).join('')+
    '<div class="ctl" style="margin-top:12px"><label class="fld" style="flex:1"><span>Новий профіль</span><input class="ttl" id="pfn" type="text" maxlength="20" placeholder="Нік" autocomplete="off"></label><button class="btn sm" data-a="pfnew">Створити й перейти</button></div>'+
@@ -1777,8 +1914,16 @@ function vStats(){
   var rows=PRODUCTS.filter(function(p){return s.pstat[p.id];}).map(function(p){return {p:p,v:s.pstat[p.id]};}).sort(function(a,b){return b.v.pr-a.v.pr;});
   var mx=Math.max.apply(null,rows.map(function(r){return Math.abs(r.v.pr);}).concat([1]));
   return '<section><h2>Капітал за 60 днів</h2><div class="card">'+lineChart(caps,'Капітал за 60 днів')+'</div></section>'+
-   '<section><h2>Прибуток по днях</h2><div class="card">'+barChart(nets,'Прибуток по днях')+'</div></section>'+
+   weekTop()+'<section><h2>Прибуток по днях</h2><div class="card">'+barChart(nets,'Прибуток по днях')+'</div></section>'+
    '<section><h2>Що приносить гроші</h2><div class="card">'+(rows.length?rows.map(function(r){return '<div class="prow"><span>'+r.p.name+'</span><span class="pbar"><i class="'+(r.v.pr>=0?'':'bad')+'" style="width:'+Math.round(Math.abs(r.v.pr)/mx*100)+'%"></i></span><span class="n">'+sg(r.v.pr)+'</span></div>';}).join(''):'<p class="hint" style="margin:0">Дані з’являться після перших продажів.</p>')+'</div></section>';
+}
+function weekTop(){
+  var a=S.snap&&S.snap.length?S.snap[S.snap.length-1]:null,b=null;if(!a)return '';
+  for(var i=0;i<S.snap.length;i++){if(S.snap[i].d>=a.d-7){b=S.snap[i];break;}}
+  var rows=Object.keys(a.n).map(function(k){return {k:k,u:a.n[k]-((b&&b.n&&b.n[k])||0)};}).filter(function(r){return r.u>0;}).sort(function(x,y){return y.u-x.u;}).slice(0,5);
+  if(!rows.length)return '';
+  var mx=rows[0].u;
+  return '<section><h2>Продажі за тиждень</h2><div class="card">'+rows.map(function(r){return '<div class="prow"><span>'+P(r.k).name+'</span><span class="pbar"><i style="width:'+Math.round(r.u/mx*100)+'%"></i></span><span class="n">'+r.u+' шт.</span></div>';}).join('')+'</div></section>';
 }
 function vDaily(){
   var d=S.daily,left=Math.max(0,7-(S.day-(d.start||0)));
@@ -1792,7 +1937,7 @@ function vRivals(){
   var ch=S.rivals.filter(function(r){return r.pf<lv;}).map(function(r){return r.name;});
   return '<section><h2>Конкуренти</h2><div class="card">'+S.rivals.map(function(r){var pc=Math.round((r.pf-1)*100);return '<div class="ln"><span>'+r.name+'</span><span class="n">'+(pc>0?'+':pc<0?'−':'')+Math.abs(pc)+'% до ринку</span></div>';}).join('')+
    '<div class="ln total"><span>Твої ціни</span><span class="n">'+(Math.round((lv-1)*100)>0?'+':Math.round((lv-1)*100)<0?'−':'')+Math.abs(Math.round((lv-1)*100))+'% до ринку</span></div></div>'+
-   '<p class="hint">'+(ch.length?'Дешевші за тебе зараз: '+ch.join(', ')+'. Покупці йдуть до них.':'Ти не дорожчий за конкурентів.')+'</p></section>';
+   '<p class="hint">'+(ch.length?'Дешевші за тебе зараз: '+ch.join(', ')+'. Покупці йдуть до них.':'Ти не дорожчий за конкурентів.')+'</p>'+mktNote()+'</section>';
 }
 function vReviews(){
   if(!S.reviews.length)return '<section><h2>Відгуки покупців</h2><p class="hint" style="margin-top:0">З’являться після перших продажів.</p></section>';
@@ -1899,9 +2044,9 @@ function vStock(){
 function vStaff(){
   var s=S;
   return '<section><h2>Команда</h2><div>'+Object.keys(STAFF).map(function(k){
-    var st=STAFF[k],on=!!s.staff[k],lock=!stOK(s,k);
-    return '<div class="up"><div class="top"><b>'+st.name+'</b><span class="n">'+st.pay+' грн/день</span></div><div class="sub">'+st.desc+'</div><div class="ctl"><button class="btn sm'+(on?' ghost':'')+'" data-a="staff" data-v="'+k+'"'+(lock&&!on?' disabled':'')+'>'+(on?'Звільнити':lock?'Відкриється '+lockTxt(s,'t',k,st.unlock):'Найняти')+'</button></div></div>';
-  }).join('')+'</div></section>';
+    var st=STAFF[k],on=!!s.staff[k],lock=!stOK(s,k),lv=stLv(s,k);
+    return '<div class="up"><div class="top"><b>'+st.name+(on?' · рівень '+(lv+1):'')+'</b><span class="n">'+fmt(stPay(s,k))+' грн/день</span></div><div class="sub">'+st.desc+'</div><div class="ctl"><button class="btn sm'+(on?' ghost':'')+'" data-a="staff" data-v="'+k+'"'+(lock&&!on?' disabled':'')+'>'+(on?'Звільнити':lock?'Відкриється '+lockTxt(s,'t',k,st.unlock):'Найняти')+'</button>'+(on&&lv<2?'<button class="btn sm" data-a="staffup" data-v="'+k+'">Навчити · '+fmt(stUpCost(s,k))+' грн</button>':'')+(on&&lv>=2?'<span class="sub done">Максимальний рівень</span>':'')+'</div></div>';
+  }).join('')+'</div><p class="hint">Навчання посилює ефект працівника, але зарплата росте на 40% за рівень.</p></section>';
 }
 
 function vGrow(){
@@ -1931,12 +2076,13 @@ function vGrow(){
 
 function vRecords(){
   var s=S,n=ACH.filter(function(a){return s.ach[a.id]!==undefined;}).length;
-  var h=vStats()+'<section><h2>Досягнення · '+n+' із '+ACH.length+'</h2><div class="card">'+ACH.map(function(a){var d=s.ach[a.id],ok=d!==undefined;return '<div class="ln"><span class="'+(ok?'done':'')+'">'+(ok?'✓ ':'')+a.name+'</span><span class="n">'+(ok?'день '+d:'—')+'</span></div>';}).join('')+'</div></section>';
+  var h=vStats()+'<section><h2>Досягнення · '+n+' із '+ACH.length+'</h2><div class="card">'+ACH.map(function(a){var d=s.ach[a.id],ok=d!==undefined;return '<div class="ln"><span class="'+(ok?'done':'')+'">'+(ok?'✓ ':'')+a.name+'</span><span class="n">'+(ok?'день '+d:(isFree(s)?'+'+fmt(achRw(a))+' грн':'—'))+'</span></div>';}).join('')+'</div></section>';
   h+='<section><h2>Таблиця рекордів</h2><div class="card">'+(BOARD.length?BOARD.slice(0,5).map(function(b,i){return '<div class="ln"><span>'+(i+1)+'. '+fmt(b.cap)+' грн'+(b.won?' ★':'')+'</span><span class="n">'+b.day+' дн. · '+fmt(b.sold)+' прод.</span></div>';}).join(''):'<div class="ln"><span>Завершених ігор ще немає. Результат потрапляє сюди, коли починаєш нову гру.</span></div>')+'<div class="ln total"><span>Поточна гра</span><span class="n">'+fmt(capital(s))+' грн · '+s.day+' дн.</span></div></div></section>';
   h+=vProfile();
+  h+=vBoard();
   h+='<section><h2>Збереження</h2><p class="hint" style="margin-top:0">'+(ui.sync?ui.sync+'. ':'')+(cloud.ref?'Прогрес прив’язаний до твого акаунта Claude і підтягнеться на іншому пристрої.':'Прогрес зберігається лише в цьому браузері.')+'</p></section>';
   h+='<section><h2>Підсумок гри</h2><div class="ctl"><button class="btn sm" data-a="rep">Скласти підсумок</button>'+(ui.rep?'<button class="btn sm ghost" data-a="repcopy">Скопіювати</button>':'')+'</div>'+(ui.rep?'<textarea class="ttl" rows="9" readonly style="margin-top:10px" aria-label="Підсумок">'+esc(ui.rep)+'</textarea>':'')+'</section>';
-  h+='<section><h2>Звук</h2><div class="ctl"><button class="chip'+(!s.mute?' on':'')+'" data-a="mute" aria-pressed="'+(!s.mute)+'">'+(s.mute?'Звук вимкнено':'Звук увімкнено')+'</button></div></section>';
+  h+='<section><h2>Звук</h2><div class="ctl"><button class="chip'+(!s.mute?' on':'')+'" data-a="mute" aria-pressed="'+(!s.mute)+'">'+(s.mute?'Звук вимкнено':'Звук увімкнено')+'</button><button class="chip'+(musicOn()?' on':'')+'" data-a="music" aria-pressed="'+musicOn()+'">'+(musicOn()?'Музика увімкнена':'Музика вимкнена')+'</button></div></section>';
   h+='<section><h2>Перенести гру на інший телефон</h2><p class="hint" style="margin-top:0">Натисни «Отримати код», скопіюй його й відправ собі в месенджері. На іншому телефоні встав код нижче й натисни «Завантажити». Поточний прогрес на тому телефоні буде замінено.</p>'+
    '<div class="ctl"><button class="btn sm" data-a="export">Отримати код</button>'+(ui.code?'<button class="btn sm ghost" data-a="copy">Скопіювати</button>':'')+'</div>'+
    (ui.code?'<textarea class="ttl" rows="4" readonly style="margin-top:10px" aria-label="Код гри">'+ui.code+'</textarea>':'')+
@@ -1956,6 +2102,7 @@ function vOver(){
 
 function render(){
   if(S.lvlPop&&!document.getElementById('mg'))showLvlPop();
+  else if(!document.getElementById('mg')&&bonusDue())showBonusPop();
   var main=ui.tab==='modes'?vModes():S.over?vOver():S.end?vEnd():ui.tab==='home'?vHome():ui.tab==='buy'?vBuy():ui.tab==='stock'?vStock():ui.tab==='grow'?vGrow():vLog();
   $('#app').innerHTML='<div class="wrap">'+vHeader(lvl(S))+'<main>'+main+'</main></div>'+(ui.toast?'<div class="toast" role="status">'+ui.toast+'</div>':'');
 }
@@ -1963,7 +2110,7 @@ function render(){
 function act(a,v,id){
   var sup=SUP(ui.sup);
   switch(a){
-    case 'tab':ui.tab=v;ui.confirm=false;if(window.scrollTo)window.scrollTo(0,0);break;
+    case 'tab':ui.tab=v;if(v==='log')lbLoad();ui.confirm=false;if(window.scrollTo)window.scrollTo(0,0);break;
     case 'next':run(1);break;
     case 'acopen':authOpen('login');break;
     case 'aclogout':acLogout();break;
@@ -1996,12 +2143,15 @@ function act(a,v,id){
     case 'ins':S.insured=!S.insured;break;
     case 'appeal':appeal();break;
     case 'staff':staffToggle(v);break;
+    case 'lbreload':lbLoad(true);break;
+    case 'staffup':staffUp(v);break;
     case 'brand':brandBuy();break;
     case 'whup':whUp();break;
     case 'borrow':borrow(+v);break;
     case 'repay':repay(+v);break;
     case 'invest':invest();break;
     case 'mute':S.mute=!S.mute;break;
+    case 'music':musicToggle();break;
     case 'tourOff':S.tourOff=true;break;
     case 'speed':ui.speed=parseInt(v,10)||0;clkAcc=0;break;
     case 'mode':if(S.day>0&&!S.end&&!S.over){ui.modeAsk=v;}else startMode(v);break;
@@ -2028,6 +2178,7 @@ function act(a,v,id){
   save();render();
 }
 
+document.addEventListener('click',function(){if(musicOn()&&!MUS.timer)musicStart();},true);
 document.addEventListener('click',function(e){
   var el=e.target.closest&&e.target.closest('[data-a]');
   if(!el)return;
